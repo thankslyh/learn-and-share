@@ -1,12 +1,20 @@
 # 模块化发展史
+
+> 我们为什么要学习这个？
+我可以列举出来几点，大家可以补充
+1. 面试会问到
+2. 由浅入深，学习模块化的进化史，有利于我们学习最新的技术
+3. 学到前端的其他知识，有利于自己工作
+
 主要分为IIFE、AMD、CMD、CommonJS、UMD、webpack（require.ensure）、ES Module `<script type="module"></script>`
 
-为什么要模块化？
+> 为什么要模块化？
 
 1. 避免变量污染
 2. 复用代码
 3. 隔离作用域
-...
+4. 便于代码维护
+5. ...
 
 ## IIFE
 ``` javascript
@@ -202,4 +210,7 @@ script.runinThisContext()
 2. nodejs的commonjs是使用C语言执行js代码，注入上下文执行js
 3. module.export 导出是利用函数的传参数的引用类型
 
-后续：umd esmodule
+TODO
+- [  ] UMD 补充 esmodule
+- [  ] esmodule的加载的简单实现
+- [  ] tree sharking 原理剖析，实现一个简易的tree sharking
