@@ -29,6 +29,7 @@
   win.test2A = a
 })(window)
 ```
+IIFE自执行函数虽然隔离了作用域，避免了变量污染，但是我们在使用的过程中很难知道某个方法来自哪个文件
 
 ## requireJs AMD (Asynchronous Module Definition)
 ``` javascript
@@ -75,6 +76,7 @@ function require(deps, callback) {
   callback(modules[id])
 }
 ```
+seajs比起IIFE更加清晰的知道了我们所用的变量/方法来自哪个文件，便于我们维护，由于它的依赖前置声明机制导致我们即使用不到的依赖也会被加载到页面当中，消耗了内存和性能
 
 ## seaJS CMD (Common Module Definition)
 ```javascript
@@ -198,7 +200,7 @@ const endSrouce = wrapper[0] + source + wrapper[1]
 
 ```javascript
 // 5.x版本
-// 这个是C封装的，看球不懂，大概理解意思就行
+// 这个是C封装的，看球不懂，大概意思是使用C封装了个类似于浏览器的script，用以执行javasript
 var script = new ContextifyScript(source)
 script.runinThisContext()
 ```
@@ -211,6 +213,6 @@ script.runinThisContext()
 3. module.export 导出是利用函数的传参数的引用类型
 
 TODO
-- [  ] UMD 补充 esmodule
-- [  ] esmodule的加载的简单实现
-- [  ] tree sharking 原理剖析，实现一个简易的tree sharking
++ [  ] UMD 补充 、esmodule
++ [  ] esmodule的加载的简单实现
++ [  ] tree sharking 原理剖析，实现一个简易的tree sharking
