@@ -3,4 +3,5 @@ var obj = {
 }
 
 module.exports = obj;
+ 
 obj.a = 2

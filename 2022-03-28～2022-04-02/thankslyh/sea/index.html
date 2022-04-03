@@ -9,9 +9,16 @@
 <body>
   
 </body>
-<script src="./sea.js"></script>
+<!-- <script src="./sea.js"></script> -->
 <script>
-  // seajs.data.debug = true;
-  seajs.use('./call.js')
+  const script = document.createElement('script')
+  script.src = './test1.js'
+  document.body.appendChild(script)
+  script.onload  = () => {
+    document.body.removeChild(script)
+  }
+  setTimeout(() => {
+    cahce.todo()
+  }, 5000)
 </script>
 </html>

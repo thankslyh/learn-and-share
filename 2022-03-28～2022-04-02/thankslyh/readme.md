@@ -6,7 +6,7 @@
 2. 由浅入深，学习模块化的进化史，有利于我们学习最新的技术
 3. 学到前端的其他知识，有利于自己工作
 
-主要分为IIFE(自执行函数)、AMD（requirejs）、CMD（seajs）、CommonJS（node规范）、UMD（一种规范）、webpack（require.ensure）、ES Module（现在流行的mjs） `<script type="module"></script>`
+主要分为IIFE(自执行函数)、AMD（requirejs）、CMD（seajs）、CommonJS（node 规范）、UMD（一种规范）、webpack（require.ensure）、ES Module（现在流行的mjs） `<script type="module"></script>`
 
 > 为什么要模块化？
 
@@ -29,7 +29,7 @@
   win.test2A = a
 })(window)
 ```
-比如两个module，是Amodule 和Bmodule，他俩都有getName方法我们要实现有几种方法
+比如两个module，是Amodule 和Bmodule，他俩都有getName方法我们要实现有 几种方法
 
 1. 在每个module里声明getXmoduleName
 2. 我们给每个module命名，Xmodule.getName
@@ -52,7 +52,7 @@ require(['say'], (say) => {
 });
 
 // say.js 定义方法
-define([''], function () {
+define(function () {
   return (word) => {
     console.log(word)
   }
@@ -141,7 +141,7 @@ define((module) => {
 2. 加载成功后从dom中删除该script，防止内存泄漏
 
 与requireJS不同点
-1. 初始化阶段不加载js，调用require的时候会先从缓存的变量里去拿，拿不到才会在加载js
+1. 初始化阶段不加载没用到的js，调用require的时候会先从缓存的变量里去拿，拿不到才会在加载js
 2. js加载成功后保存方法，然后删除js防止内存泄漏
 
 核心原理：use(xxx)的时候找到该文件，动态创建script插入head标签内部，然后删除该script（防止内存泄漏）；使用require的时候根据require(xxx)找到该文件，重复第二步，使函数方法保存在内存里；define的时候把定义的方法保存到module.exports里；
@@ -155,6 +155,7 @@ define((module) => {
 ```javascript
 // index.js
 const todo = require('./todo.js')
+const obj = require('./todo2.js')
 todo('eat') // eat
 console.log(obj) // { a: 2 }
 
@@ -169,7 +170,7 @@ obj.a = 2
 
 这里先抛出三个问题
 1. require、module从哪来的？我们明明没有引用这个却能直接使用
-2. 为什么第二个log会打印 `{a: 2}`，我把它引用出来的时候明明它还是1
+<!-- 2. 为什么第二个log会打印 `{a: 2}`，我把它引用出来的时候明明它还是1 -->
 3. `nodejs`没有`script`怎么执行js脚本?
 
 `nodejs`只有一个入口，首先从package.json中找到`main`使用fs模块读取该入口文件成字符串
@@ -177,6 +178,7 @@ obj.a = 2
 ```javascript
 // source 此时就是该文件的字符串源码
 const source = fs.readFileSync('./index.js')
+'const todo = require('./todo.js')'
 ```
 
 然后nodejs会使用上下文把它给包裹起来
@@ -211,7 +213,7 @@ var script = new ContextifyScript(source)
 script.runinThisContext()
 ```
 
-也就是说会先执行一边引用的文件才给缓存起来，这就解释了为什么打印`{a: 2}`
+<!-- TODO 也就是说会先执行一边引用的文件才给缓存起来，这就解释了为什么打印`{a: 2}` refrence value -->
 
 总结
 1. AMD&CMD核心原理是利用动态创建script，然后放入html中执行该脚本；使用闭包保存方法、变量
