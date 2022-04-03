@@ -6,7 +6,7 @@
 2. 由浅入深，学习模块化的进化史，有利于我们学习最新的技术
 3. 学到前端的其他知识，有利于自己工作
 
-主要分为IIFE、AMD、CMD、CommonJS、UMD、webpack（require.ensure）、ES Module `<script type="module"></script>`
+主要分为IIFE(自执行函数)、AMD（requirejs）、CMD（seajs）、CommonJS（node规范）、UMD（一种规范）、webpack（require.ensure）、ES Module（现在流行的mjs） `<script type="module"></script>`
 
 > 为什么要模块化？
 
@@ -16,7 +16,7 @@
 4. 便于代码维护
 5. ...
 
-## IIFE
+## IIFE（闭包）
 ``` javascript
 // 自执行函数，变量只在函数体内生效，隔离了作用域;互不影响
 (function(win) {
@@ -29,7 +29,13 @@
   win.test2A = a
 })(window)
 ```
-IIFE自执行函数虽然隔离了作用域，避免了变量污染，但是我们在使用的过程中很难知道某个方法来自哪个文件
+比如两个module，是Amodule 和Bmodule，他俩都有getName方法我们要实现有几种方法
+
+1. 在每个module里声明getXmoduleName
+2. 我们给每个module命名，Xmodule.getName
+3. 使用闭包
+
+IIFE自执行函数产生了闭包虽然隔离了作用域，避免了变量污染，但是我们在使用的过程中很难知道某个方法来自哪个文件
 
 ## requireJs AMD (Asynchronous Module Definition)
 ``` javascript
