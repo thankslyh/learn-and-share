@@ -510,6 +510,7 @@ var requirejs, require, define;
         function on(depMap, name, fn) {
             var id = depMap.id,
                 mod = getOwn(registry, id);
+
             if (hasProp(defined, id) &&
                     (!mod || mod.defineEmitComplete)) {
                 if (name === 'defined') {
@@ -741,7 +742,6 @@ var requirejs, require, define;
 
         Module.prototype = {
             init: function (depMaps, factory, errback, options) {
-              console.log('Module.init', depMaps, factory, options);
                 options = options || {};
 
                 //Do not do more inits if already done. Can happen if there
@@ -1120,7 +1120,6 @@ var requirejs, require, define;
                                                (this.map.isDefine ? this.map : this.map.parentMap),
                                                false,
                                                !this.skipMap);
-                        console.log('depMap', depMap)
                         this.depMaps[i] = depMap;
 
                         handler = getOwn(handlers, depMap.id);

@@ -5,7 +5,7 @@ requirejs.config({
   }
 })
 
-require('say', (say) => {
+require(['say'], (say) => {
   say('hello');
 });
 

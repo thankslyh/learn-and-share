@@ -220,6 +220,8 @@ script.runinThisContext()
 2. nodejs的commonjs是使用C语言执行js代码，注入上下文执行js
 3. module.export 导出是利用函数的传参数的引用类型
 
+后续 UMD & webpack.ensure & esmodule [后续补充](../20220404-20220410/readme.md)
+
 TODO
 + [  ] UMD 补充 、esmodule
 + [  ] esmodule的加载的简单实现
