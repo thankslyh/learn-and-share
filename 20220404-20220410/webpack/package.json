@@ -1,9 +1,13 @@
 {
   "scripts": {
     "dev": "webpack-dev-server --config webpack.config.js",
-    "build": "webpack --config webpack.config.js"
+    "build": "webpack --config webpack.config.js",
+    "build:common": "cross-env TYPE_ENV=common webpack --config webpack.config.js",
+    "build:ensure": "cross-env TYPE_ENV=ensure webpack --config webpack.config.js",
+    "build:live": "cross-env TYPE_ENV=live webpack --config webpack.config.js"
   },
   "dependencies": {
+    "cross-env": "^7.0.3",
     "html-webpack-plugin": "^5.5.0",
     "webpack-cli": "^4.9.2",
     "webpack-dev-server": "^4.8.0"

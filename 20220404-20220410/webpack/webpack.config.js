@@ -2,17 +2,18 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
   mode: 'development',
-  entry: './index.js',
+  entry: process.env.TYPE_ENV ? `./index-${process.env.TYPE_ENV}.js` : './index.js',
   output: {
-    publicPath: './dist',
-    filename: 'bundle.js'
+    publicPath: './',
+    filename: process.env.TYPE_ENV ? `bundle-${process.env.TYPE_ENV}.js` : 'bundle.js',
   },
   devServer: {
     port: '6666'
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './index.html'
+      template: './index.html',
+      filename: process.env.TYPE_ENV ? `index-${process.env.TYPE_ENV}.html` : 'index.html',
     })
   ]
 }

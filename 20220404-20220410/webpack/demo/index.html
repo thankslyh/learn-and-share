@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script>
+    var obj1 = {
+      a: 1
+    }
+    var obj2 = {
+      b: 2
+    }
+    obj1[Symbol.toStringTag] = 'obj1'
+    console.log(Object.prototype.toString.call(obj1))
+    console.log(Object.prototype.toString.call(obj2))
+    function testEval() {
+      "use strict";
+      var evalObj = {
+        name: '这是一个eval'
+      }
+      eval("console.log(evalObj)")
+      eval("console.log(obj1)")
+    }
+    function getN() {
+      return n
+    }
+    // console.log(getN())
+    const n = 'N'
+    testEval()
+    console.log(getN())
+    
+    const Factory = function () {
+      this.a = 123
+    }
+    Factory.prototype.test = () => {}
+    const f = new Factory()
+    console.log(f)
+    for (let j in f) {
+      console.log(j, Object.prototype.hasOwnProperty.call(f, j))
+    }
+  </script>
+</body>
+</html>

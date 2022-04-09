@@ -3,3 +3,7 @@ export default function todo(somethings) {
 }
 
 export const b = 2
+
+export function todo2 (somethings) {
+  console.log(somethings)
+}

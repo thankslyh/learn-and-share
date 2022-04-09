@@ -15,39 +15,18 @@
   \*******************/
 /***/ ((module) => {
 
-eval("module.exports = {\n  name: '这是一个commonjs模块'\n}\n\n//# sourceURL=webpack:///./common.js?");
+eval("module.exports = {\n  name: '这是一个esModule',\n  default: '这是一个default',\n  __esModule: true\n}\n\n//# sourceURL=webpack:///./common.js?");
 
 /***/ }),
 
-/***/ "./index.js":
-/*!******************!*\
-  !*** ./index.js ***!
-  \******************/
+/***/ "./index-common.js":
+/*!*************************!*\
+  !*** ./index-common.js ***!
+  \*************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
-eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   \"default\": () => (__WEBPACK_DEFAULT_EXPORT__)\n/* harmony export */ });\n/* harmony import */ var _todo__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./todo */ \"./todo.js\");\n/* harmony import */ var _umd_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./umd.js */ \"./umd.js\");\n/* harmony import */ var _umd_js__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_umd_js__WEBPACK_IMPORTED_MODULE_1__);\n/* harmony import */ var _common_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./common.js */ \"./common.js\");\n/* harmony import */ var _common_js__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_common_js__WEBPACK_IMPORTED_MODULE_2__);\n\n\n\n\n(0,_todo__WEBPACK_IMPORTED_MODULE_0__[\"default\"])(_todo__WEBPACK_IMPORTED_MODULE_0__.b)\n\nconsole.log((_umd_js__WEBPACK_IMPORTED_MODULE_1___default()))\nconsole.log((_common_js__WEBPACK_IMPORTED_MODULE_2___default()))\nconsole.log(_common_js__WEBPACK_IMPORTED_MODULE_2__.name)\n\n/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({\n  name: '这是根模块'\n});\n\n//# sourceURL=webpack:///./index.js?");
-
-/***/ }),
-
-/***/ "./todo.js":
-/*!*****************!*\
-  !*** ./todo.js ***!
-  \*****************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   \"b\": () => (/* binding */ b),\n/* harmony export */   \"default\": () => (/* binding */ todo),\n/* harmony export */   \"todo2\": () => (/* binding */ todo2)\n/* harmony export */ });\nfunction todo(somethings) {\n  console.log(somethings)\n}\n\nconst b = 2\n\nfunction todo2 (somethings) {\n  console.log(somethings)\n}\n\n//# sourceURL=webpack:///./todo.js?");
-
-/***/ }),
-
-/***/ "./umd.js":
-/*!****************!*\
-  !*** ./umd.js ***!
-  \****************/
-/***/ (function(module, exports, __webpack_require__) {
-
-eval("var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;(function(root, factory) {\n  if (true) {\n    !(__WEBPACK_AMD_DEFINE_FACTORY__ = (factory),\n\t\t__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?\n\t\t(__WEBPACK_AMD_DEFINE_FACTORY__.call(exports, __webpack_require__, exports, module)) :\n\t\t__WEBPACK_AMD_DEFINE_FACTORY__),\n\t\t__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__))\n  } else {}\n})(this, function(depModule){\n  return {\n    name: '这是一个UMD模块'\n  }\n})\n\n//# sourceURL=webpack:///./umd.js?");
+eval("__webpack_require__.r(__webpack_exports__);\n/* harmony import */ var _common_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./common.js */ \"./common.js\");\n/* harmony import */ var _common_js__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_common_js__WEBPACK_IMPORTED_MODULE_0__);\n\n\nconsole.log((_common_js__WEBPACK_IMPORTED_MODULE_0___default()))\n\n//# sourceURL=webpack:///./index-common.js?");
 
 /***/ })
 
@@ -71,7 +50,7 @@ eval("var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;(functio
 /******/ 		};
 /******/ 	
 /******/ 		// Execute the module function
-/******/ 		__webpack_modules__[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/ 		__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
 /******/ 	
 /******/ 		// Return the exports of the module
 /******/ 		return module.exports;
@@ -123,7 +102,7 @@ eval("var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;(functio
 /******/ 	// startup
 /******/ 	// Load entry module and return exports
 /******/ 	// This entry module can't be inlined because the eval devtool is used.
-/******/ 	var __webpack_exports__ = __webpack_require__("./index.js");
+/******/ 	var __webpack_exports__ = __webpack_require__("./index-common.js");
 /******/ 	
 /******/ })()
 ;
