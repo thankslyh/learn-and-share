@@ -83,7 +83,7 @@ function testEval() {
 }
 testEval()
 ```
-通过这个例子我们了解到`eval`执行代码时，代码哪的上下文根`eval`所处于同一个上下文,它的变量查找符合作用域链
+通过这个例子我们了解到`eval`执行代码时，代码的上下文和`eval`所处于同一个上下文,它的变量查找符合作用域链
 <br />
 <br />
 
@@ -345,15 +345,6 @@ eval("__webpack_require__.e(/*! import() */ \"split_js\").then(__webpack_require
 				}
 		};
 		
-		// no prefetching
-		
-		// no preloaded
-		
-		// no HMR
-		
-		// no HMR manifest
-		
-		// no on chunks loaded
 		
 		// install a JSONP callback for chunk loading
     // 很重要
@@ -434,3 +425,24 @@ eval("__webpack_require__.e(/*! import() */ \"split_js\").then(__webpack_require
 4. 加载完成该chunk的同时会触发改`chunk`的自执行函数,调用`self["webpackChunk"].push = webpackJsonpCallback`,作为第二个参数传入
 5. 根据`chunkId`在`installedChunks`找到该chunk的状态`[resolve, reject, promise]`，并执行`resolve`，触发promise的.then
 6. 这个时候触发的其实是`__webpack_require__.e`的返回值：promise，这个里面又使用`__webpack_reuqire`加载了这个chunk，返回该chunk的exports給then，也就是再次.then的到的就是导出的内容
+
+## esModule和CommonJs的区别
+
+> CommonJs
+
+1. CommonJs可以动态加载语句，代码发生在运行时
+3. CommonJs导出值是拷贝，可以修改导出的值，这在代码出错时，不好排查引起变量污染
+
+> esModule
+
+1. esModule是静态的，不可以动态加载语句，只能声明在该文件的最顶部，代码发生在编译时(新版本的import(xx)可以动态)
+2. esModule混合导出，单个导出，默认导出，完全互不影响
+3. esModule导出的基本类型有live binding
+
+## 总结
+1. 从开始到现在我们分析了所有的模块化，其实它的基本原理无非就那几个
+  - 生成script加载模块
+  - 代码直接打包到文件里
+2. 更加好的利用promise的机制，实现异步编程
+  - 一个promis的resolve和reject是可以单独拿出去使用，并触发该promise
+3. 合理使用bind可以保存原方法和进行预置参数
