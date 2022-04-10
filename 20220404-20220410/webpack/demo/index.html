@@ -14,9 +14,19 @@
     var obj2 = {
       b: 2
     }
+    // Symbol.toStringTag作用
     obj1[Symbol.toStringTag] = 'obj1'
     console.log(Object.prototype.toString.call(obj1))
     console.log(Object.prototype.toString.call(obj2))
+    // Symbol.toPrimitive作用
+    var obj3 = {
+      a: 1,
+      [Symbol.toPrimitive](_this) {
+        console.log(_this)
+        return '这是一个对象， 实现了to primitive'
+      }
+    }
+    console.log(obj3 + '')
     function testEval() {
       "use strict";
       var evalObj = {
@@ -32,7 +42,7 @@
     const n = 'N'
     testEval()
     console.log(getN())
-    
+    // in 和 hasOwnProperty区别
     const Factory = function () {
       this.a = 123
     }

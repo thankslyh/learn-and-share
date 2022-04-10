@@ -73,7 +73,7 @@ function __webpack_require__(moduleId) {
 	return module.exports;
 }
 ```
-在我们接着着理解上面的调用之前先看一个demo
+在我们接着理解上面的调用之前先看一个demo
 ```javascript
 var obj1 = {
   a: 1
@@ -87,7 +87,7 @@ function testEval() {
 }
 testEval()
 ```
-通过这个例子我们了解到`eval`执行代码时，代码的上下文和`eval`所处于同一个上下文,它的变量查找符合作用域链
+通过这个例子我们了解到`eval`执行代码时，被执行的代码的上下文和`eval`所处于同一个上下文,它的变量查找符合作用域链
 <br />
 <br />
 
@@ -101,7 +101,7 @@ var __webpack_modules__ = ({
     "use strict";
     eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   \"default\": () => (__WEBPACK_DEFAULT_EXPORT__)\n/* harmony export */ });\n/* harmony import */ var _todo__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./todo */ \"./todo.js\");\n/* harmony import */ var _umd_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./umd.js */ \"./umd.js\");\n/* harmony import */ var _umd_js__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_umd_js__WEBPACK_IMPORTED_MODULE_1__);\n/* harmony import */ var _common_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./common.js */ \"./common.js\");\n/* harmony import */ var _common_js__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_common_js__WEBPACK_IMPORTED_MODULE_2__);\n\n\n\n\n(0,_todo__WEBPACK_IMPORTED_MODULE_0__[\"default\"])(_todo__WEBPACK_IMPORTED_MODULE_0__.b)\n\nconsole.log(_umd_js__WEBPACK_IMPORTED_MODULE_1__)\nconsole.log((_common_js__WEBPACK_IMPORTED_MODULE_2___default()))\n\n/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({\n  name: '这是根模块'\n});\n\n//# sourceURL=webpack:///./index.js?");
   }),
-  "./todo.js": "./todo.js":((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+  "./todo.js": ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
   "use strict";
   eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   \"b\": () => (/* binding */ b),\n/* harmony export */   \"default\": () => (/* binding */ todo),\n/* harmony export */   \"todo2\": () => (/* binding */ todo2)\n/* harmony export */ });\nfunction todo(somethings) {\n  console.log(somethings)\n}\n\nconst b = 2\n\nfunction todo2 (somethings) {\n  console.log(somethings)\n}\n\n//# sourceURL=webpack:///./todo.js?");
@@ -112,14 +112,14 @@ var __webpack_modules__ = ({
 // 我么可以看到他的第一段代码是执行了__webpack_require__.r
 
 // eval todo格式化之后的代码
-// `__webpack_require__.d(__webpack_exports__, {
-  //               "b": () => (b),
-  //               "default": () => (todo) 
-  //               });
-  //               function todo(somethings) {
-  //                   console.log(somethings)
-  //               }
-  //               const b = 2`
+__webpack_require__.d(__webpack_exports__, {
+  "b": () => (b),
+  "default": () => (todo) 
+});
+function todo(somethings) {
+    console.log(somethings)
+}
+const b = 2
 ```
 接下来我们来看这个`__webpack_require__.r`
 
