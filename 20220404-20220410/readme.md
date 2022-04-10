@@ -1,3 +1,7 @@
+## 回顾
+AMD：代表是requireJs，它的特点是异步模块定义，模块在定义的时候也就被加载了
+CMD：代表是seaJs，它的特点是按需加载，在真正require的时候被引入加载
+CommonJs：nodeJs的模块加载，它的特点是给js代码增加上下文，以用node 的 runInThisContext执行
 ## UMD (Universal Module Definition) 流行模块定义
 思考几个问题
 1. 我引用一个第三方库，我该使用AMD规范 or CMD规范？
