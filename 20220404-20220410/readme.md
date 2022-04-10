@@ -33,6 +33,7 @@ UMD包的规范就是满足流行模块使用的定义
 综上所述UMD其实是一种规范，它兼容了AMD、CMD、Commonjs等各种规范
 
 ## esModule
+
 1. 运行时执行js
 2. live binding
 3. 摇树机制（后续补充）
@@ -158,10 +159,10 @@ __webpack_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj
 加载commonjs代码如下：
 ```javascript
 // indexjs 引入 commonjs
-var _common_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./common.js */ \"./common.js\");
+var _common_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("./common.js");
 
 // commonjs 函数
-// 我们回一下这个module其实就是第一个尝试，也就是__webpack_require__调用这个commonjs的时候传入的第二个参数
+// 我们回一下这个module其实就是第一个参数，也就是__webpack_require__调用这个commonjs的时候传入的第二个参数
 {"./common.js": ((module) => {
 
   eval("module.exports = {\n  name: '这是一个commonjs模块'\n}\n\n//# sourceURL=webpack:///./common.js?")
@@ -171,7 +172,6 @@ var _common_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./common.j
 // index对commonjs导出变量的使用
 var _common_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__("./common.js");
 var _common_js__WEBPACK_IMPORTED_MODULE_0___default = __webpack_require__.n(_common_js__WEBPACK_IMPORTED_MODULE_0__);
-console.log((_common_js__WEBPACK_IMPORTED_MODULE_0___default()))
 
 // __webpack_require__.n 函数的作用
 __webpack_require__.n = (module) => {
@@ -196,7 +196,7 @@ return getter;
 
 ![](./assets//%E6%B5%81%E7%A8%8B%E5%9B%BE.jpg)
 
-## require.ensure
+## require.ensure (import())
 `require.ensure`叫动态引入、按需加载，代码如下
 
 ```javascript
@@ -205,7 +205,7 @@ return getter;
   "./index-ensure.js": ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
 
 eval("__webpack_require__.e(/*! import() */ \"split_js\").then(__webpack_require__.bind(__webpack_require__, /*! ./split.js */ \"./split.js\")).then(code => console.log(code))\n\n//# sourceURL=webpack:///./index-ensure.js?"); })
-
+  "./split.js": (() => {}) // xxxxx {  }
 	});
 	// The module cache
 	var __webpack_module_cache__ = {};
@@ -218,15 +218,16 @@ eval("__webpack_require__.e(/*! import() */ \"split_js\").then(__webpack_require
 	__webpack_require__.f = {};
   // This file contains only the entry chunk.
   // The chunk loading function for additional chunks
-  // e函数返回值是一个promise，.the返回的会是`promises`
+  // e函数返回值是一个promise
   // 这里的f函数上只有一个j函数，也就是说这里执行的其实是f[j](chunkId, promises)
   // 注意这里又使用了函数引用传参
   // 也就是调用完__webpack_require__.e之后得到的是一个promises，关于这个是什么，我们接着往下看
   __webpack_require__.e = (chunkId) => {
-    return Promise.all(Object.keys(__webpack_require__.f).reduce((promises, key) => {
-      __webpack_require__.f[key](chunkId, promises);
-      return promises;
-    }, []));
+    // return Promise.all(Object.keys(__webpack_require__.f).reduce((promises, key) => {
+    //   __webpack_require__.f[key](chunkId, promises);
+    //   return promises;
+    // }, []));
+    return Promise.all([promise]);
   };
 	
 	/* webpack/runtime/get javascript chunk filename */
@@ -352,15 +353,13 @@ eval("__webpack_require__.e(/*! import() */ \"split_js\").then(__webpack_require
 		
 		// install a JSONP callback for chunk loading
     // 很重要
-
-    // 
 		var webpackJsonpCallback = (parentChunkLoadingFunction, data) => {
     console.log(parentChunkLoadingFunction, data);
 			var [chunkIds, moreModules, runtime] = data;
 			// add "moreModules" to the modules object,
 			// then flag all "chunkIds" as loaded and fire callback
 			var moduleId, chunkId, i = 0;
-			if(chunkIds.some((id) => (installedChunks[id] !== 0))) {
+			if(chunkIds.some((id) => (installedChunks[id] !== 0))) { // [resolve, reject, promise]
 				for(moduleId in moreModules) {
           // 如果moduleId在moreModules上，并且是他自己的属性，就把它放到m上
           // 这一步主要是为了只拿自己的属性，因为in方法会把原型上可枚举的属性也拿到
@@ -376,9 +375,10 @@ eval("__webpack_require__.e(/*! import() */ \"split_js\").then(__webpack_require
 			if(parentChunkLoadingFunction) parentChunkLoadingFunction(data);
 			for(;i < chunkIds.length; i++) {
 				chunkId = chunkIds[i];
+        // split_js
 				if(__webpack_require__.o(installedChunks, chunkId) && installedChunks[chunkId]) {
           // 执行该被加载模块的js, 也就是到这一步，一个被分割的模块已经加载完成了
-          // 这里的installedChunks[chunkId][0] = 上面缓存的resolve | installedChunkData = installedChunks[chunkId] = [resolve, reject])
+          // 这里的installedChunks[chunkId][0] = 上面缓存的resolve | installedChunkData = installedChunks[chunkId] = [resolve, reject]) [2] = promise.then
           // 调用了这个也就是把这个promise給resolve了, 会把存储的第三个参数promise給fulled，然后执行.then
 					installedChunks[chunkId][0]();
 				}
@@ -450,3 +450,6 @@ eval("__webpack_require__.e(/*! import() */ \"split_js\").then(__webpack_require
 2. 更加好的利用promise的机制，实现异步编程
   - 一个promis的resolve和reject是可以单独拿出去使用，并触发该promise
 3. 合理使用bind可以保存原方法和进行预置参数
+
+TODO:
+// tree sharking
