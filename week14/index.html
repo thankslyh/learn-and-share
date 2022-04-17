@@ -6,10 +6,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
 </head>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+  }
+  .feed {
+    width: 200px;
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    /* column-count: 2; */
+  }
+  .feed div {
+    width: 100px;
+    break-inside: avoid;
+  }
+  .div1 {
+    height: 100px;
+    background: red;
+  }
+  .div2 {
+    height: 120px;
+    background: green;
+  }
+  .div3 {
+    height: 130px;
+    background: blue;
+  }
+  .div4 {
+    height: 140px;
+    background: yellow;
+  }
+</style>
 <body>
   <p>我是dom元素p标签</p>
   <!-- 影子存放标签 -->
   <div id="shadow"></div>
+  <div class="feed">
+    <div class="div1"></div>
+    <div class="div2"></div>
+    <div class="div3"></div>
+    <div class="div4"></div>
+  </div>
   <script>
     // 创建一个影子shadow dom
     // mode:open / closed : 外界可以访问 /不可以访问
