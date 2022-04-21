@@ -268,6 +268,624 @@ if (isLoad) {
   - xxx
 6. 调用bundle.render，输出所有有副作用的`module`(module.toString())
 
+> 新增
+
+我们先找到`rollup`入口文件
+```javascript
+export function rollup ( options ) {
+    // 创建bundle，每一个入口是一个bundle
+    const bundle = new Bundle( options );
+    // 执行build方法
+    return bundle.build()
+}
+```
+
+接下来我们逐步去分析`Bundle`这个类
+## Bundle
+
+```javascript
+export default class Bundle {
+	constructor ( options ) {
+		this.entry = options.entry;
+		// 保存entryModule也就是entry对应的文件生成的module
+		this.entryModule = null;
+
+		this.plugins = ensureArray( options.plugins );
+		// 根据路径找到文件的方法
+		this.resolveId = first(
+			this.plugins
+				.map( plugin => plugin.resolveId )
+				.filter( Boolean )
+				.concat( resolveId )
+		);
+		// 根据文件路径找读取文件内容
+		this.load = first(
+			this.plugins
+				.map( plugin => plugin.load )
+				.filter( Boolean )
+				.concat( load )
+		);
+		// 允许用户定制化一些转换代码规则
+		this.transformers = this.plugins
+			.map( plugin => plugin.transform )
+			.filter( Boolean );
+        // 正在创建中的一些模块，避免循环
+		this.pending = blank();
+		// 通过id获取module
+		this.moduleById = blank();
+		// 存放所有的module
+		this.modules = [];
+	}
+    // 打包
+	build () {
+		return Promise.resolve( this.resolveId( this.entry, undefined ) ) // 根据入口用过获取到source code`import {a} from 'b'`
+			.then( id => this.fetchModule( id, undefined ) )
+            // 入口文件对应的module
+			.then( entryModule => {
+				//...
+			});
+	}
+
+	deconflict () {...}
+
+	fetchModule ( id, importer ) {
+		// short-circuit cycles
+		// 如果该模块正在记载直接返回，目的是为了避免循环
+		if ( this.pending[ id ] ) return null;
+		this.pending[ id ] = true;
+		// 读取源代码 source code
+		return Promise.resolve( this.load( id ) )
+			// 先经过使用者自定义的转换器进行一次转换
+			.then( source => transform( source, id, this.transformers ) )
+			.then( source => {
+				const { code, originalCode, ast, sourceMapChain } = source;
+                // 创建入口文件的module
+				const module = new Module({ id, code, originalCode, ast, sourceMapChain, bundle: this });
+
+				this.modules.push( module );
+				this.moduleById[ id ] = module;
+
+				return this.fetchAllDependencies( module ).then( () => module );
+			});
+	}
+    // 获取module所依赖的所有module
+    // 也就是该模块 `import xxx from 'xxx'`引入的内容
+	fetchAllDependencies ( module ) {...}
+    // 输出处理后的source code
+	render ( options = {} ) {...}
+
+	sort () {...}
+}
+```
+经过上面`Bundle`文件我们可以大概了解`bundle`做了哪些事情
+1. 创建`bundle并`调用 `build`方法，得到`entryModule`
+2. 根据入口文件名称调用`fetchModule`方法获取到文件的 `source code`
+3. 调用用户自定义传入的 `transfrom`方法转换`source code`,如果没传则不处理
+4. 把创建出来的 `module`放入自身的`this.modules`和`this.moduleById`里，方便之后使用
+5. 加载当前 `module`所依赖的全部依赖
+
+还有其他的一些方法，由于现在还没有流转到，所以这里先不说。那我们接下来去看这个 `Module`类做了什么
+
+## Module
+```javascript
+export default class Module {
+	constructor ({ id, code, originalCode, ast, sourceMapChain, bundle }) {
+		// 当前被用户转换后的代码
+		this.code = code;
+		// 源码，也就是直接被读取到的字符串
+		this.originalCode = originalCode;
+		this.sourceMapChain = sourceMapChain;
+		// 保存父bundle，也就是把module对应上父bundle,方便直接使用
+		this.bundle = bundle;
+		this.id = id;
+
+		// 该module所依赖的所有属性/方法
+		this.dependencies = [];
+		this.resolvedIds = blank();
+
+		// 该模块引用的依赖 `import a from 'b'`
+		this.imports = blank();
+		// 该模块导出的依赖 `export const foo = 1`
+		this.exports = blank();
+		// 该模块从其他模块导出的依赖 `export foo from 'b'`
+		this.reexports = blank();
+		// 给该文件创建magicString，方便进行删除、新增等操作
+		this.magicString = new MagicString( code, {
+			filename: id,
+			indentExclusionRanges: []
+		});
+
+		// 解析语法树转换为表达式
+		this.statements = this.parse( ast );
+		// 该模块所有的声明
+		this.declarations = blank();
+		// 分析模块
+		this.analyse();
+	}
+	// 当前语句是导出语句，就把该语句添加到dependencies和exports里reexports
+	addExport ( statement ) {...}
+	// 当前语句是导入语句，就把该语句添加到dependencies和imports里
+	addImport ( statement ) {...}
+	// 模块分析方法
+	analyse () {
+		// discover this module's imports and exports
+		this.statements.forEach( statement => {
+			// 是import/export表达式，就分别把该表达式放入对应的数组中
+      // 目的是为了标记模块依赖的模块位置
+      // 也就是说index 模块引用的cube对应的文件名
+			// math模块导出的变量对应的位置
+			if ( statement.isImportDeclaration ) this.addImport( statement );
+			else if ( statement.isExportDeclaration ) this.addExport( statement );
+			// 分析语句
+			statement.analyse();
+
+			statement.scope.eachDeclaration( ( name, declaration ) => {
+				this.declarations[ name ] = declaration;
+			});
+		});
+	}
+
+	basename () {}
+	// 绑定别名
+	bindAliases () {...}
+
+	bindImportSpecifiers () {
+		[ this.imports, this.reexports ].forEach( specifiers => {
+			keys( specifiers ).forEach( name => {
+				const specifier = specifiers[ name ];
+
+				const id = this.resolvedIds[ specifier.source ];
+				specifier.module = this.bundle.moduleById[ id ];
+			});
+		});
+
+		this.exportAllModules = this.exportAllSources.map( source => {
+			const id = this.resolvedIds[ source ];
+			return this.bundle.moduleById[ id ];
+		});
+	}
+	// 绑定引用，也就是该模块依赖于其他模块的变量/方法
+	bindReferences () {...}
+
+	consolidateDependencies () {
+		let strongDependencies = blank();
+		let weakDependencies = blank();
+
+		// treat all imports as weak dependencies
+		this.dependencies.forEach( source => {
+			const id = this.resolvedIds[ source ];
+			const dependency = this.bundle.moduleById[ id ];
+
+			if ( !dependency.isExternal ) {
+				weakDependencies[ dependency.id ] = dependency;
+			}
+		});
+
+		// identify strong dependencies to break ties in case of cycles
+		this.statements.forEach( statement => {
+			statement.references.forEach( reference => {
+				const declaration = reference.declaration;
+
+				if ( declaration && declaration.statement ) {
+					const module = declaration.statement.module;
+					if ( module === this ) return;
+
+					// TODO disregard function declarations
+					if ( reference.isImmediatelyUsed ) {
+						strongDependencies[ module.id ] = module;
+					}
+				}
+			});
+		});
+
+		return { strongDependencies, weakDependencies };
+	}
+
+	getExports () {
+		let exports = blank();
+
+		keys( this.exports ).forEach( name => {
+			exports[ name ] = true;
+		});
+
+		keys( this.reexports ).forEach( name => {
+			exports[ name ] = true;
+		});
+
+		this.exportAllModules.forEach( module => {
+			module.getExports().forEach( name => {
+				if ( name !== 'default' ) exports[ name ] = true;
+			});
+		});
+
+		return keys( exports );
+	}
+	// 标记副作用
+	markAllSideEffects () {
+		let hasSideEffect = false;
+
+		this.statements.forEach( statement => {
+			if ( statement.markSideEffect() ) hasSideEffect = true;
+		});
+
+		return hasSideEffect;
+	}
+
+	namespace () {...}
+
+	parse ( ast ) {
+		// The ast can be supplied programmatically (but usually won't be)
+		// 允许提供ast（但通常不会）
+		if ( !ast ) {
+			// Try to extract a list of top-level statements/declarations. If
+			// the parse fails, attach file info and abort
+			try {
+				ast = parse( this.code, {
+					ecmaVersion: 6,
+					sourceType: 'module',
+					onComment: ( block, text, start, end ) => this.comments.push({ block, text, start, end }),
+					preserveParens: true
+				});
+			} catch ( err ) {
+				err.code = 'PARSE_ERROR';
+				err.file = this.id; // see above - not necessarily true, but true enough
+				err.message += ` in ${this.id}`;
+				throw err;
+			}
+		}
+
+		walk( ast, {
+			enter: node => {
+				// 給开始和结束的地方打上标记
+				this.magicString.addSourcemapLocation( node.start );
+				this.magicString.addSourcemapLocation( node.end );
+			}
+		});
+
+		let statements = [];
+		let lastChar = 0;
+		let commentIndex = 0;
+
+		ast.body.forEach( node => {
+			if ( node.type === 'EmptyStatement' ) return;
+			// 这里的主要作用是把 export let a1, a2;中这种批量export声明处理成一个ExportNamedDeclaration
+			// 同时执行下面的代码第二个if时分割成多个VariableDeclaration声明
+			if (
+				node.type === 'ExportNamedDeclaration' &&
+				node.declaration &&
+				node.declaration.type === 'VariableDeclaration' &&
+				node.declaration.declarations &&
+				node.declaration.declarations.length > 1
+			) {
+				// push a synthetic export declaration
+				// 就把该声明放入一个自己合成的Node里
+				const syntheticNode = {
+					type: 'ExportNamedDeclaration',
+					specifiers: node.declaration.declarations.map( declarator => {
+						const id = { name: declarator.id.name };
+						return {
+							local: id,
+							exported: id
+						};
+					}),
+					isSynthetic: true
+				};
+
+				const statement = new Statement( syntheticNode, this, node.start, node.start );
+				statements.push( statement );
+				// 删除source code中的export ，已经不需要了
+				this.magicString.remove( node.start, node.declaration.start );
+				node = node.declaration;
+			}
+
+			// special case - top-level var declarations with multiple declarators
+			// should be split up. Otherwise, we may end up including code we
+			// don't need, just because an unwanted declarator is included
+			// 顶层的var a, b, c;
+			// 或者export a, b, c;到这里给处理成多个VariableDeclaration语句
+			if ( node.type === 'VariableDeclaration' && node.declarations.length > 1 ) {
+				// remove the leading var/let/const... UNLESS the previous node
+				// was also a synthetic node, in which case it'll get removed anyway
+				const lastStatement = statements[ statements.length - 1 ];
+				if ( !lastStatement || !lastStatement.node.isSynthetic ) {
+					this.magicString.remove( node.start, node.declarations[0].start );
+				}
+
+				node.declarations.forEach( declarator => {
+					const { start, end } = declarator;
+
+					const syntheticNode = {
+						type: 'VariableDeclaration',
+						kind: node.kind,
+						start,
+						end,
+						declarations: [ declarator ],
+						isSynthetic: true
+					};
+
+					const statement = new Statement( syntheticNode, this, start, end );
+					statements.push( statement );
+				});
+
+				lastChar = node.end; // TODO account for trailing line comment
+			}
+
+			else {
+				let comment;
+				do {
+					comment = this.comments[ commentIndex ];
+					if ( !comment ) break;
+					if ( comment.start > node.start ) break;
+					commentIndex += 1;
+				} while ( comment.end < lastChar );
+
+				const start = comment ? Math.min( comment.start, node.start ) : node.start;
+				const end = node.end; // TODO account for trailing line comment
+				// 这里就是正常的export导出
+				// 处理成Statement 创建一个表达式
+				const statement = new Statement( node, this, start, end );
+				statements.push( statement );
+
+				lastChar = end;
+			}
+		});
+
+		let i = statements.length;
+		let next = this.code.length;
+		while ( i-- ) {
+			// 设置后一个的语句的next位置为上一个的开始位置，方便删除，直接从该语句的start到next（指向的是下个语句的start）
+			// 能够精准删除该语句包括两个语句之间的符号（换行符、注释等等）
+			// 删除时只需要 this.magicString.remove(statement.start, statement.next)
+			statements[i].next = next;
+			// 合成语句在magicString的source code中不存在，所以不需要设置
+			if ( !statements[i].isSynthetic ) next = statements[i].start;
+		}
+
+		return statements;
+	}
+	// 输出该模块的source code字符串
+	render ( es6 ) {...}
+	// 根据所依赖的引用的名字，查找该声明
+	trace ( name ) {
+		if ( name in this.declarations ) return this.declarations[ name ];
+		if ( name in this.imports ) {
+			const importDeclaration = this.imports[ name ];
+			const otherModule = importDeclaration.module;
+
+			if ( importDeclaration.name === '*' && !otherModule.isExternal ) {
+				return otherModule.namespace();
+			}
+
+			return otherModule.traceExport( importDeclaration.name, this );
+		}
+
+		return null;
+	}
+	// 根据引用里的名字，获取到导出的属性/方法
+	traceExport ( name, importer ) {
+		// export { foo } from './other'
+		const reexportDeclaration = this.reexports[ name ];
+		if ( reexportDeclaration ) {
+			return reexportDeclaration.module.traceExport( reexportDeclaration.localName, this );
+		}
+
+		const exportDeclaration = this.exports[ name ];
+		if ( exportDeclaration ) {
+			return this.trace( exportDeclaration.localName );
+		}
+
+		for ( let i = 0; i < this.exportAllModules.length; i += 1 ) {
+			const module = this.exportAllModules[i];
+			const declaration = module.traceExport( name, this );
+
+			if ( declaration ) return declaration;
+		}
+
+		let errorMessage = `Module ${this.id} does not export ${name}`;
+		if ( importer ) errorMessage += ` (imported by ${importer.id})`;
+
+		throw new Error( errorMessage );
+	}
+}
+```
+
+上面是`Module`类的`build`流程中主要做的事情
+
+1. 创建类的同时保存一些必要属性`imports/exports/dependencies/bundle/statements`,创建`magicString`实例方便操作字符串等等
+2. 解析该`module`的`source code`为ast语法树，目的是为了处理里面的语句
+	- 空语句不用解析`EmptyStatement`
+	- `export var a1, a2, a3`这样的多声明的`exportNamedDeclaration`语句，就把它组合成正常带标识符的语句，
+	同时把当前正在解析的node改变为声明数组，也就是这一步`node = node.declaration;`，其目的是为了在下面的if执
+	行的时候把多变量声明拆分为单个单个的声明
+	- 如果是`VariableDeclaration`声明，并且是多变量声明（也就是有多个`declaration`）,给拆分为多个单声明语句。
+		- export var a1, a3;
+		- 在模块顶部 var a1, a2, a3;
+	- 正常的语句正常创建`statement`
+3. 执行模块的解析方法，给每个语句创建scope,并把其内部的declaration上绑定上父statement，方便操作
+
+接下来我们去看`statement`在build过程中的一些操作
+
+## Statement
+```javascript
+export default class Statement {
+	constructor ( node, module, start, end ) {
+		this.node = node;
+		// 绑定父module，方便操作
+		this.module = module;
+		// 绑定当前语句的开始位置和结束位置
+		this.start = start;
+		this.end = end;
+		// 在module中已经做了处理
+		this.next = null; // filled in later
+		// 创建一个当前语句的作用域
+		this.scope = new Scope();
+····// 保存当前语句引用的声明
+		this.references = [];
+		this.stringLiteralRanges = [];
+		// 当前语句是否被使用
+		this.isIncluded = false;
+
+		this.isImportDeclaration = node.type === 'ImportDeclaration';
+		this.isExportDeclaration = /^Export/.test( node.type );
+		// export { xxx } from './xxx'
+		this.isReexportDeclaration = this.isExportDeclaration && !!node.source;
+	}
+	// 语句分析
+	analyse () {
+		// import语句不需要分析，因为在module中已经存在imports
+		if ( this.isImportDeclaration ) return; // nothing to analyse
+
+		// attach scopes
+		// 保存当前的作用域链到当前语句的`scope`上，其目的是为了方便找到该语句上使用的声明
+		attachScopes( this );
+
+		// attach statement to each top-level declaration,
+		// so we can mark statements easily
+		this.scope.eachDeclaration( ( name, declaration ) => {
+			// 保存给每个声明挂上当前语句的引用，方便操作
+			declaration.statement = this;
+		});
+
+		// find references
+		let { module, references, scope, stringLiteralRanges } = this;
+		let readDepth = 0;
+
+		walk( this.node, {
+			enter ( node, parent ) {
+				if ( node.type === 'TemplateElement' ) stringLiteralRanges.push([ node.start, node.end ]);
+				if ( node.type === 'Literal' && typeof node.value === 'string' && /\n/.test( node.raw ) ) {
+					stringLiteralRanges.push([ node.start + 1, node.end - 1 ]);
+				}
+
+				if ( node._scope ) scope = node._scope;
+				if ( /Function/.test( node.type ) && !isIife( node, parent ) ) readDepth += 1;
+
+				// special case – shorthand properties. because node.key === node.value,
+				// we can't differentiate once we've descended into the node
+				// const a = 1; obj = { a } 这种的a属性叫做shorthand
+				if ( node.type === 'Property' && node.shorthand ) {
+					const reference = new Reference( node.key, scope );
+					reference.isShorthandProperty = true; // TODO feels a bit kludgy
+					references.push( reference );
+					return this.skip();
+				}
+
+				let isReassignment;
+				// var modifierNodes = {
+				// 	AssignmentExpression: 'left', 分配表达式，也就是赋值 a.b.c = 1
+				// 	UpdateExpression: 'argument' 更新表达式 a++/a--/++a/--a
+				// };
+				if ( parent && parent.type in modifierNodes ) {
+					let subject = parent[ modifierNodes[ parent.type ] ];
+					let depth = 0;
+					// 如果左边还是一个MemberExpression表达式，就意味者是 obj.b.c = 1
+					// 就一直找，知道找到最顶层的父级，也就是obj
+					while ( subject.type === 'MemberExpression' ) {
+						subject = subject.object;
+						depth += 1;
+					}
+					// 在module的imports里找
+					const importDeclaration = module.imports[ subject.name ];
+					// 如果在作用域里没有发现这个对象，并且module里有引用这个对象
+					// 意味着该变量是从其他模块引入，并且赋值了，分几种情况
+					// 1. obj.a = 1,没有重新分配
+					// 2. obj = {} // 报错
+					// 3. a++; 被重新分配赋值了
+					if ( !scope.contains( subject.name ) && importDeclaration ) {
+						const minDepth = importDeclaration.name === '*' ?
+							2 : // cannot do e.g. `namespace.foo = bar`
+							1;  // cannot do e.g. `foo = bar`, but `foo.bar = bar` is fine
+
+						if ( depth < minDepth ) {
+							const err = new Error( `Illegal reassignment to import '${subject.name}'` );
+							err.file = module.id;
+							err.loc = getLocation( module.magicString.toString(), subject.start );
+							throw err;
+						}
+					}
+
+					isReassignment = !depth;
+				}
+
+				if ( isReference( node, parent ) ) {
+					// function declaration IDs are a special case – they're associated
+					// with the parent scope
+					const referenceScope = parent.type === 'FunctionDeclaration' && node === parent.id ?
+						scope.parent :
+						scope;
+
+					const reference = new Reference( node, referenceScope );
+					references.push( reference );
+
+					reference.isImmediatelyUsed = !readDepth;
+					reference.isReassignment = isReassignment;
+
+					this.skip(); // don't descend from `foo.bar.baz` into `foo.bar`
+				}
+			},
+			leave ( node, parent ) {
+				if ( node._scope ) scope = scope.parent;
+				if ( /Function/.test( node.type ) && !isIife( node, parent ) ) readDepth -= 1;
+			}
+		});
+	}
+
+	mark () {
+		if ( this.isIncluded ) return; // prevent infinite loops
+		this.isIncluded = true;
+
+		this.references.forEach( reference => {
+			if ( reference.declaration ) reference.declaration.use();
+		});
+	}
+
+	markSideEffect () {
+		if ( this.isIncluded ) return;
+
+		const statement = this;
+		let hasSideEffect = false;
+
+		walk( this.node, {
+			enter ( node, parent ) {
+				// node是一个函数且不是iife函数，直接忽略没有副作用
+				if ( /Function/.test( node.type ) && !isIife( node, parent ) ) return this.skip();
+
+				// If this is a top-level call expression, or an assignment to a global,
+				// this statement will need to be marked
+				// 如果是一个调用表达式
+				if ( node.type === 'CallExpression' || node.type === 'NewExpression' ) {
+					hasSideEffect = true;
+				}
+
+				else if ( node.type in modifierNodes ) {
+					// a.x = {}
+					let subject = node[ modifierNodes[ node.type ] ];
+					while ( subject.type === 'MemberExpression' ) subject = subject.object;
+					// 在父module上找到该声明
+					const declaration = statement.module.trace( subject.name );
+
+					if ( !declaration || declaration.isExternal || declaration.statement.isIncluded ) {
+						hasSideEffect = true;
+					}
+				}
+
+				if ( hasSideEffect ) this.skip();
+			}
+		});
+
+		if ( hasSideEffect ) statement.mark();
+		return hasSideEffect;
+	}
+
+	source () {
+		return this.module.source.slice( this.start, this.end );
+	}
+
+	toString () {
+		return this.module.magicString.slice( this.start, this.end );
+	}
+}
+```
 参考文档
 
 [https://zhuanlan.zhihu.com/p/32831172](https://zhuanlan.zhihu.com/p/32831172)
