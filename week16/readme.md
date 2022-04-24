@@ -806,7 +806,7 @@ export default class Statement {
 
 					isReassignment = !depth;
 				}
-
+				// 父节点是否与子节点存在引用关系
 				if ( isReference( node, parent ) ) {
 					// function declaration IDs are a special case – they're associated
 					// with the parent scope
@@ -829,7 +829,260 @@ export default class Statement {
 			}
 		});
 	}
+	// 给当前语句打标记，目的是为了有标记的才输出source code
+	mark () {...}
+	// 标记副作用
+	markSideEffect () {}
+	// 获取当前语句的source code
+	source () {...}
 
+	// 获取当前语句的magicString
+	toString () {
+		return this.module.magicString.slice( this.start, this.end );
+	}
+}
+
+// attchScope
+export default function attachScopes ( statement ) {
+	let { node, scope } = statement;
+	walk( node, {
+		enter ( node, parent ) {
+			// function foo () {...}
+			// class Foo {...}
+			// 创建一个新的作用域
+			if ( /(Function|Class)Declaration/.test( node.type ) ) {
+				scope.addDeclaration( node, false, false );
+			}
+
+			// var foo = 1
+			// var foo = function(){}
+			if ( node.type === 'VariableDeclaration' ) {
+				const isBlockDeclaration = blockDeclarations[ node.kind ];
+				// only one declarator per block, because we split them up already
+				scope.addDeclaration( node.declarations[0], isBlockDeclaration, true );
+			}
+
+			let newScope;
+
+			// create new function scope
+			// 如果当前node是一个function，则需要创建一个新的作用域
+			// 因为接下来要递归他的子节点存放到他的声明中
+			if ( /Function/.test( node.type ) ) {
+				newScope = new Scope({
+					parent: scope,
+					block: false,
+					params: node.params
+				});
+
+				// named function expressions - the name is considered
+				// part of the function's scope
+				// var foo = function(){}，需要创建一个新的声明到当前作用域
+				if ( node.type === 'FunctionExpression' && node.id ) {
+					newScope.addDeclaration( node, false, false );
+				}
+			}
+
+			// create new block scope
+			if ( node.type === 'BlockStatement' && !/Function/.test( parent.type ) ) {
+				newScope = new Scope({
+					parent: scope,
+					block: true
+				});
+			}
+
+			// catch clause has its own block scope
+			if ( node.type === 'CatchClause' ) {
+				newScope = new Scope({
+					parent: scope,
+					params: [ node.param ],
+					block: true
+				});
+			}
+
+			if ( newScope ) {
+				// 如果新的作用域存在，则给当前节点打上标记，目的是为了离开当前节点时
+				// 就意味着要去找父节点的兄弟节点，需要在离开时得到父节点的作用域
+				Object.defineProperty( node, '_scope', {
+					value: newScope,
+					configurable: true
+				});
+				// 得到新的scope，因为要去递归它的面得声明/变量
+				// function foo(){ var a1, a2 }
+				scope = newScope;
+			}
+		},
+		// 每次一个小节点被遍历完，就会触发leave
+		// 这里也就是，如果该小节点有自己的scope，也就意味着该校节点是个块级作用域（function、class等）
+		// 所以需要在离开的时候，也就是该去便利其他节点了，应该让scope等于parent scope
+		leave ( node ) {
+			if ( node._scope ) {
+				scope = scope.parent;
+			}
+		}
+	});
+}
+```
+
+以上代码中Statement所做的事情如下：
+
+1. 保存父module到自己身上方便操作，保存一些比较关键的信息(自己的scope、refrences、included等)
+2. 解析当前语句
+	- 如果该语句是import语句，则不需要解析（因为import语句是从其他模块引入引来的，在module层已经保留了imports，和关键词）
+	- 保存自己的作用域，目的是为了方便寻找自己内部的一些变量
+	- 给作用域里的每个声明增加当前语句的引用，目的是为了最终标记时，如果该作用域里的声明被使用，该语句一定是有副作用的，需要标记
+	- 保存当前语句的引用，放入`refrences`里
+
+直到这里，bundle的分析流程已经完结了，已经创建了一个依赖图，接下来我们看bundle在打包的时候是怎么只打包有被用到的代码
+
+## 绑定依赖
+
+``` javascript
+// Bundle
+export default class Bundle {
+	constructor(){...}
+	  // 打包
+	build () {
+		return Promise.resolve( this.resolveId( this.entry, undefined ) ) // 根据入口用过获取到source code`import {a} from 'b'`
+			.then( id => this.fetchModule( id, undefined ) )
+      // 入口文件对应的module
+			.then( entryModule => {
+				this.entryModule = entryModule;
+				// 给该模块import的语句的妇保绑定上对应的模块
+				// imort { a } from 'b',也就是把 a 绑定到 b
+				this.modules.forEach( module => module.bindImportSpecifiers() );
+				// 绑定别名
+				this.modules.forEach( module => module.bindAliases() );
+				// 绑定引用，很重要
+				this.modules.forEach( module => module.bindReferences() );
+				// mark all export statements
+				entryModule.getExports().forEach( name => {
+					const declaration = entryModule.traceExport( name );
+					declaration.isExported = true;
+
+					declaration.use();
+				});
+			});
+	}
+}
+
+// Module
+
+export default class Module {
+	constructor(){...}
+	bindReferences () {
+		// 如果当前模块引入的是defaut,并且有标识符
+		// exports.default
+		if ( this.declarations.default ) {
+			if ( this.exports.default.identifier ) {
+				// 找到该标识符对应的声明
+				const declaration = this.trace( this.exports.default.identifier );
+				if ( declaration ) this.declarations.default.bind( declaration );
+			}
+		}
+
+		this.statements.forEach( statement => {
+			// skip `export { foo, bar, baz }`...
+			if ( statement.node.type === 'ExportNamedDeclaration' && statement.node.specifiers.length ) {
+				// ...unless this is the entry module
+				if ( this !== this.bundle.entryModule ) return;
+			}
+			// 循环所有语句所引用的变量
+			statement.references.forEach( reference => {
+				// 优先从当前作用域去找
+				// 其次从其他模块去追踪，关联
+				// 目的是为了最后标记副作用的时候能给当前有副作用的模块所依赖的其他声明打上副作用
+				const declaration = reference.scope.findDeclaration( reference.name ) ||
+				                    this.trace( reference.name );
+
+				if ( declaration ) {
+					declaration.addReference( reference );
+				} else {
+					// TODO handle globals
+					this.bundle.assumedGlobals[ reference.name ] = true;
+				}
+			});
+		});
+	}
+	// 根据名字追踪该声明
+	trace ( name ) {
+		// 当前声明中有改变量名对应的声明就直接返回
+		if ( name in this.declarations ) return this.declarations[ name ];
+		// imports中有该变量，就说明是从其他模块引入的
+		if ( name in this.imports ) {
+			const importDeclaration = this.imports[ name ];
+			// 找到该模块
+			const otherModule = importDeclaration.module;
+
+			if ( importDeclaration.name === '*' && !otherModule.isExternal ) {
+				return otherModule.namespace();
+			}
+			// 从其他模块追踪export
+			return otherModule.traceExport( importDeclaration.name, this );
+		}
+
+		return null;
+	}
+
+	traceExport ( name, importer ) {
+		// export { foo } from './other'
+		// 该变量在该模块是以这种形式导出的，就去追踪它所依赖的模块
+		const reexportDeclaration = this.reexports[ name ];
+		if ( reexportDeclaration ) {
+			return reexportDeclaration.module.traceExport( reexportDeclaration.localName, this );
+		}
+		// 在该模块的exports中找到该变量
+		const exportDeclaration = this.exports[ name ];
+		if ( exportDeclaration ) {
+			return this.trace( exportDeclaration.localName );
+		}
+		// 如果上面找不到，那么就在所有的模块中循环找该声明
+		for ( let i = 0; i < this.exportAllModules.length; i += 1 ) {
+			const module = this.exportAllModules[i];
+			const declaration = module.traceExport( name, this );
+
+			if ( declaration ) return declaration;
+		}
+
+		let errorMessage = `Module ${this.id} does not export ${name}`;
+		if ( importer ) errorMessage += ` (imported by ${importer.id})`;
+
+		throw new Error( errorMessage );
+	}
+}
+```
+上面主要内容是绑定依赖，也就是把模块之间的变量依赖所关联起来
+
+1. 按照前语句所有的引用查找依赖
+	- 如果能在作用域里查到，直接从作用域里拿
+	- 如果当前作用域查不到，就从其他模块里找
+2. 根据变量名追踪该变量名对应的声明
+3. 绑定依赖
+
+上面的流程已经把所有变量之间的引用给关联起来了，接下来我们看下如何标记副作用
+
+## 标记副作用
+```javascript
+// bundle 的 build 方法里
+let settled = false;
+while ( !settled ) {
+	settled = true;
+	// 给所有模块标记副作用
+	this.modules.forEach( module => {
+		if ( module.markAllSideEffects() ) settled = false;
+	});
+}
+// module
+markAllSideEffects () {
+	let hasSideEffect = false;
+	// 找到该模块下的所有语句标记副作用
+	this.statements.forEach( statement => {
+		if ( statement.markSideEffect() ) hasSideEffect = true;
+	});
+
+	return hasSideEffect;
+}
+
+// statement
 	mark () {
 		if ( this.isIncluded ) return; // prevent infinite loops
 		this.isIncluded = true;
@@ -852,16 +1105,17 @@ export default class Statement {
 
 				// If this is a top-level call expression, or an assignment to a global,
 				// this statement will need to be marked
-				// 如果是一个调用表达式
+				// 如果是一个调用表达式，是存在副作用的
 				if ( node.type === 'CallExpression' || node.type === 'NewExpression' ) {
 					hasSideEffect = true;
 				}
 
 				else if ( node.type in modifierNodes ) {
-					// a.x = {}
+					// a.x.y = 1
+					// a++
 					let subject = node[ modifierNodes[ node.type ] ];
 					while ( subject.type === 'MemberExpression' ) subject = subject.object;
-					// 在父module上找到该声明
+					// 根据变量名追踪该声明
 					const declaration = statement.module.trace( subject.name );
 
 					if ( !declaration || declaration.isExternal || declaration.statement.isIncluded ) {
@@ -877,15 +1131,25 @@ export default class Statement {
 		return hasSideEffect;
 	}
 
-	source () {
-		return this.module.source.slice( this.start, this.end );
-	}
+	// declaration
+	use () {
+		this.isUsed = true;
+		if ( this.statement ) this.statement.mark();
 
-	toString () {
-		return this.module.magicString.slice( this.start, this.end );
+		this.aliases.forEach( alias => alias.use() );
 	}
-}
 ```
+以上是标记副作用的过程，它主要就是给语句、声明标记副作用
+
+1. 该语句是调用表达式`CallExpression`/`NewExpression`标记副作用
+2. 该语句是`AssignExpression`或者`UpdateExpression`，去找追踪node节点的声明
+	- 如果该声明不存在 标记有副作用
+	- 如果该声明是外部的，则标记副作用
+	- 如果该声明所依赖的语句被使用了，则标记副作用
+3. 给当前语句打上`isIncluded`同时给该语句所引用的声明标记`isUsed`
+
+到这里完整的build流程就完事儿了，接下来就是输出source code
+
 参考文档
 
 [https://zhuanlan.zhihu.com/p/32831172](https://zhuanlan.zhihu.com/p/32831172)
