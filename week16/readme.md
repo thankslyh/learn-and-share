@@ -240,6 +240,8 @@ function walk (ast, ref) {
 
 `rollup`遍历遍历语句/词法是从后往前递归遍历，也就是会先遍历后面的语句和词法
 
+![遍历](./asstes//walk.png)
+
 ## Tree Shaking原理
 1. ES6的模块引入是静态分析的，故而可以在编译时正确判断到底加载了什么代码
 2. 分析程序流，判断哪些变量未被使用、引用，进而删除此代码。
@@ -252,23 +254,9 @@ if (isLoad) {
 }
 ```
 
-首先import不支持在条件语句里引入的（import(xxx)不算），因为esModule语法在经过`ast`编译的时候是静态的，也就是说在编译的时候没有办法知道`isLoad`是否为true，`commonjs`的`require`是可以在条件语句内加载的，固不支持`tree shaking`
+首先import不支持在条件语句里引入的（import(xxx)不算），因为esModule语法在经过`ast`编译的时候是静态的，也就是说在编译的时候没有办法知道`isLoad`是否为true，`commonjs`的`require`是可以在条件语句内加载的，故不支持`tree shaking`
 
-> 怎么删dead code？在哪删？
-
-1. `rollup`在build的时候会给当前应用创建一个`bundle`对象，上面包含了所有的`module`
-2. 加在其对应的`module`,每一个文件是一个`module`，每一个module会把里面的source code创建一个magicString，方便操作
-3. 接待来module会进行ast转码，把body里的语法创建为statement的实例对象
-4. statement代码walk分析
-  - 如果是子面量`Literal`直接放入`stringLiteralRanges`二维数组，标记其位置 [[0, 2]]
-  - 如果子节点是一个`Identifier`,父节点与子节点存在引用，则把当前node创建一个Refrence的实例，放入当前节点的引用数组中，目的是为了遍历这个statement的时候能勾知道引用了其他的数据
-5. 标记模块副作用。`module.markAllSideEffect -> statement.markSideEffect -> state.refrences.declaration.use`
-  - 如果该语句是`Function`类型，并且不是iife，直接忽略，没有副作用
-  - 如果该语句是`CallExpress | NewExpression`必然会存在副作用，打上标记，并去遍历它所有的引用打上标记
-  - xxx
-6. 调用bundle.render，输出所有有副作用的`module`(module.toString())
-
-> 新增
+## 入口
 
 我们先找到`rollup`入口文件
 ```javascript
@@ -1148,16 +1136,181 @@ markAllSideEffects () {
 	- 如果该声明所依赖的语句被使用了，则标记副作用
 3. 给当前语句打上`isIncluded`同时给该语句所引用的声明标记`isUsed`
 
-到这里完整的build流程就完事儿了，接下来就是输出source code
+到这里完整的build流程基本就完事儿了，接下来就是输出source code
+
+## render
+```javascript
+export default class Module {
+	constructor(){...}
+	render ( es6 ) {
+		let magicString = this.magicString.clone();
+
+		this.statements.forEach( statement => {
+			// 如果该语句没有被使用/包含直接删除该语句的source code
+			if ( !statement.isIncluded ) {
+				magicString.remove( statement.start, statement.next );
+				return;
+			}
+
+			statement.stringLiteralRanges.forEach( range => magicString.indentExclusionRanges.push( range ) );
+
+			// skip `export { foo, bar, baz }`
+			if ( statement.node.type === 'ExportNamedDeclaration' ) {
+				// 证明该语句ast中不存在，是我们创建的合成词法，不应该被处理
+				if ( statement.node.isSynthetic ) return;
+
+				// skip `export { foo, bar, baz }`
+				if ( statement.node.specifiers.length ) {
+					magicString.remove( statement.start, statement.next );
+					return;
+				}
+			}
+
+			// split up/remove var declarations as necessary
+			if ( statement.node.isSynthetic ) {
+				// insert `var/let/const` if necessary
+				const declaration = this.declarations[ statement.node.declarations[0].id.name ];
+				if ( !( declaration.isExported && declaration.isReassigned ) ) { // TODO encapsulate this
+					magicString.insert( statement.start, `${statement.node.kind} ` );
+				}
+				// 主要是为了把 var a, b, c处理成
+				// var a;
+				// var b;
+				// var c;
+				magicString.overwrite( statement.end, statement.next, ';\n' ); // TODO account for trailing newlines
+			}
+
+			let toDeshadow = blank();
+
+			statement.references.forEach( reference => {
+				const declaration = reference.declaration;
+
+				if ( declaration ) {
+					const { start, end } = reference;
+					const name = declaration.render( es6 );
+
+					// the second part of this check is necessary because of
+					// namespace optimisation – name of `foo.bar` could be `bar`
+					if ( reference.name === name && name.length === reference.end - reference.start ) return;
+
+					reference.rewritten = true;
+
+					// prevent local variables from shadowing renamed references
+					const identifier = name.match( /[^\.]+/ )[0];
+					if ( reference.scope.contains( identifier ) ) {
+						toDeshadow[ identifier ] = `${identifier}$$`; // TODO more robust mechanism
+					}
+					// shorthandProperty 之前说过，是这样的形式 { a }
+					if ( reference.isShorthandProperty ) {
+						magicString.insert( end, `: ${name}` );
+					} else {
+						magicString.overwrite( start, end, name, true );
+					}
+				}
+			});
+
+			if ( keys( toDeshadow ).length ) {
+				statement.references.forEach( reference => {
+					if ( !reference.rewritten && reference.name in toDeshadow ) {
+						magicString.overwrite( reference.start, reference.end, toDeshadow[ reference.name ], true );
+					}
+				});
+			}
+
+			// modify exports as necessary
+			if ( statement.isExportDeclaration ) {
+				// remove `export` from `export var foo = 42`
+				// 删除export这一部分
+				if ( statement.node.type === 'ExportNamedDeclaration' && statement.node.declaration.type === 'VariableDeclaration' ) {
+					const name = statement.node.declaration.declarations[0].id.name;
+					const declaration = this.declarations[ name ];
+
+					const end = declaration.isExported && declaration.isReassigned ?
+						statement.node.declaration.declarations[0].start :
+						statement.node.declaration.start;
+
+					magicString.remove( statement.node.start, end );
+				}
+
+				else if ( statement.node.type === 'ExportAllDeclaration' ) {
+					// TODO: remove once `export * from 'external'` is supported.
+					// 如果是默认导出，就把整个语句都删除掉，没有必要打包进去
+					magicString.remove( statement.start, statement.next );
+				}
+
+				// remove `export` from `export class Foo {...}` or `export default Foo`
+				// TODO default exports need different treatment
+				else if ( statement.node.declaration.id ) {
+					magicString.remove( statement.node.start, statement.node.declaration.start );
+				}
+
+				else if ( statement.node.type === 'ExportDefaultDeclaration' ) {
+					const defaultDeclaration = this.declarations.default;
+
+					// prevent `var foo = foo`
+					if ( defaultDeclaration.original && !defaultDeclaration.original.isReassigned ) {
+						magicString.remove( statement.start, statement.next );
+						return;
+					}
+
+					const defaultName = defaultDeclaration.render();
+
+					// prevent `var undefined = sideEffectyDefault(foo)`
+					if ( !defaultDeclaration.isExported && !defaultDeclaration.isUsed ) {
+						magicString.remove( statement.start, statement.node.declaration.start );
+						return;
+					}
+
+					// anonymous functions should be converted into declarations
+					if ( statement.node.declaration.type === 'FunctionExpression' ) {
+						magicString.overwrite( statement.node.start, statement.node.declaration.start + 8, `function ${defaultName}` );
+					} else {
+						magicString.overwrite( statement.node.start, statement.node.declaration.start, `var ${defaultName} = ` );
+					}
+				}
+
+				else {
+					throw new Error( 'Unhandled export' );
+				}
+			}
+		});
+
+		// add namespace block if necessary
+		const namespace = this.declarations['*'];
+		if ( namespace && namespace.needsNamespaceBlock ) {
+			magicString.append( '\n\n' + namespace.renderBlock( magicString.getIndentString() ) );
+		}
+
+		return magicString.trim();
+	}
+}
+```
+上面是输出source code过程所做的一些事情
+
+1. 如果该语句没有被使用，就直接把该语句的source code删除（因为标记副作用的时候会把所有有用到的语句、声明打上标记）
+2. 如果改语句是具名导出语句
+	- 该语句是合成语句，则不处理`var a1, a2, a3;`
+	- 该语句具有多个标识符 `export {a1, a2, a3}`，直接把该语句删除，不需要打包进去(因为上面创建的合成语句已经包括了这部分)
+3. 如果该语句是合成语句 `var a1, a2, a3;`,则会处理成`var a1; var a2; var a3; `
+4. 处理各种导出与剧中的`export `关键词，进行删除
+5. 给默认导出的函数增加默认名
+6. 输出整个magicString的source code
+
+这样一整个完整的打包流程就到这里结束了。
+
+## 总结
+
+1. `rollup`在build的时候会给当前应用创建一个`bundle`对象，上面包含了`entryModule`,以及该module所依赖的module，最终形成一个图
+2. 加载其对应的`module`,每一个文件是一个`module`，每一个module会把里面的`source code`创建一个`magicString`，方便操作
+3. 接待来module会进行ast转码，把body里的语法创建为`statement`的实例对象，然后只需要对每个语句进行分析就可以
+4. statement代码walk分析，目的主要是分析该语句所引用的声明，并打上标记（isImmediatelyUsed、isReassignment）是否立即使用、是否重新分配
+5. 标记模块副作用。`module.markAllSideEffect -> statement.markSideEffect -> state.refrences.declaration.use`，主要是`CallExpress | NewExpression`调用表达式和new表达式一定是存在副作用的，需要标记该语句，以及该语句所引用的声明
+6. 调用bundle.render->module.render，如果该语句不存在副作用，则直接根据语句的位置删除掉source code，最终输出source code
+
+简单来说就是[Tree Shaking原理](#Tree-Shaking原理)
 
 参考文档
 
 [https://zhuanlan.zhihu.com/p/32831172](https://zhuanlan.zhihu.com/p/32831172)
 [https://segmentfault.com/a/1190000040009496](https://segmentfault.com/a/1190000040009496)
 [https://segmentfault.com/a/1190000040476979](https://segmentfault.com/a/1190000040476979)
-
-## 其他
-
-webpack4、5生产环境现在都支持了tree shaking，[副作用](https://zhuanlan.zhihu.com/p/32831172)几乎也没有，但是webpack现在代码量庞大，498 份JS文件 18862 行注释 73548 行代码，好处是在于生态圈庞大
-
-rollup比较轻量级，适合开发一些小插件之类的库

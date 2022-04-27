@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script src="https://unpkg.com/magic-string@0.26.1/dist/magic-string.umd.js"></script>
+  <script>
+    // overwrite
+    const s = new MagicString('problems = 99');
+    s.overwrite(0, 8, 'answer');
+    console.log(s.toString());
+    // remove
+    s.remove(0, 9);
+    console.log(s.toString())
+
+    // insert
+    s.appendLeft(0, 'answer2 ');
+    console.log(s.toString())
+  </script>
+</body>
+</html>
