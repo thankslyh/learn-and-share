@@ -1,22 +1,25 @@
-## 什么是Tree Shaking
+## 什么是 Tree Shaking
 
-Tree Shaking又叫摇树机制，顾名思义就是通过摇树把枯萎的无用的树叶给摇下来。
+Tree Shaking 又叫摇树机制，顾名思义就是通过摇树把枯萎的无用的树叶给摇下来。
 在我们的代码中就是通过“摇”把无用的代码去掉，是优化的一个范畴
 
-> 为什么学习Tree Shaking
+> 为什么学习 Tree Shaking
 
-1. 合理的运用tree shaking机制能够使我们代码打包时降低包的大小，优化加载速度
+1. 合理的运用 tree shaking 机制能够使我们代码打包时降低包的大小，优化加载速度
 2. 最近几年的面试中`Tree Shaking`被问到的比较多，能够帮助我们面试
 
 > 目标 (rollup)
+
 1. 知道怎么合理的使用`Tree Shaking`
 2. 了解`Tree Shaking`的核心原理(本次只是先了解一些基本概念)
 
-> 为什么是rollup？
-1. rollup是最早实现tree shaking的编译工具，并且我们的目标就是了解tree shaking
-2. rollup在最早期0.20.0版本代码还相对较少，方便读
+> 为什么是 rollup？
+
+1. rollup 是最早实现 tree shaking 的编译工具，并且我们的目标就是了解 tree shaking
+2. rollup 在最早期 0.20.0 版本代码还相对较少，方便读
 
 ## DCE （Dead Code Elimination）死码清除
+
 `DCE`和`Tree-shaking`的终极目标是一致的，就是为了减少无用的代码被打包，但它们存在区别
 
 `rollup`的作者`Rich Haris`举了个蛋糕的例子：
@@ -25,7 +28,7 @@ Tree Shaking又叫摇树机制，顾名思义就是通过摇树把枯萎的无�
 
 [参考文章](https://segmentfault.com/a/1190000040476979)
 
-> 什么是Dead Code
+> 什么是 Dead Code
 
 ```javascript
 // 声明了变量或函数却没有使用
@@ -44,27 +47,30 @@ if (false) {
   console.log('永远都不会到达的逻辑')
 }
 ```
+
 这一类没有被使用/不会被执行的代码就叫做死码，这一类代码不需要被打包进去，这个时候`webpack/rollup`就会使用摇树机制清除死码
 
 接下来我们先了解一些`rollup`中基本库
+
 ## MagicString 类
+
 ```javascript
 var magicString = new MagicString('export var name = "beijing"');
 //类似于截取字符串
-console.log(magicString.snip(0,6).toString()); // export
+console.log(magicString.snip(0, 6).toString()); // export
 
 //从开始到结束删除字符串(索引永远是基于原始的字符串，而非改变后的)
-console.log(magicString.remove(0,7).toString()); // var name = "beijing"
+console.log(magicString.remove(0, 7).toString()); // var name = "beijing"
 
 //很多模块，把它们打包在一个文件里，需要把很多文件的源代码合并在一起
 let bundleString = new MagicString.Bundle();
 bundleString.addSource({
-    content:'var a = 1;',
-    separator:'\n'
+  content: "var a = 1;",
+  separator: "\n",
 });
 bundleString.addSource({
-    content:'var b = 2;',
-    separator:'\n'
+  content: "var b = 2;",
+  separator: "\n",
 });
 /* let str = '';
 str += 'var a = 1;\n'
@@ -74,8 +80,11 @@ console.log(bundleString.toString());
 // var a = 1;
 //var b = 2;
 ```
+
 ## AST 抽象语法树
-把`js`代码转换为`ast`语法树，方便操作树，一般webpack和rollup都是用acorn去解析ast语法树
+
+把`js`代码转换为`ast`语法树，方便操作树，一般 webpack 和 rollup 都是用 acorn 去解析 ast 语法树
+
 ```json
 // import { cube } from 'math'
 {
@@ -118,12 +127,14 @@ console.log(bundleString.toString());
   "sourceType": "module"
 }
 ```
-ast在线转换 [https://astexplorer.net/](https://astexplorer.net/)
 
-1. ast语法树解析，每个文件是一个`Program`
-2. body里存放的所有完整的语句`var a = 1;`
+ast 在线转换 [https://astexplorer.net/](https://astexplorer.net/)
 
-> export语句
+1. ast 语法树解析，每个文件是一个`Program`
+2. body 里存放的所有完整的语句`var a = 1;`
+
+> export 语句
+
 ```json
 // export const a = (x) => x * x;
 {
@@ -188,53 +199,55 @@ ast在线转换 [https://astexplorer.net/](https://astexplorer.net/)
   "source": null
 }
 ```
+
 `export`语句是有`declaration`声明的，里面存放导出的属性声明
 
 ...
 
-## walk 递归遍历ast语法树
+## walk 递归遍历 ast 语法树
+
 ```javascript
 // walk函数
-function visit (node, parent, enter, leave, prop, index) {
-	if (!node) return;
+function visit(node, parent, enter, leave, prop, index) {
+  if (!node) return;
 
-	if (enter) {
-		context.shouldSkip = false;
-		enter.call(context, node, parent, prop, index);
-		if (context.shouldSkip) return;
-	}
+  if (enter) {
+    context.shouldSkip = false;
+    enter.call(context, node, parent, prop, index);
+    if (context.shouldSkip) return;
+  }
   // {}
-	var keys = (childKeys[node.type] = Object.keys(node).filter(function (key) {
-		return typeof node[key] === 'object';
-	}));
+  var keys = (childKeys[node.type] = Object.keys(node).filter(function (key) {
+    return typeof node[key] === "object";
+  }));
 
-	var key, value, i, j;
+  var key, value, i, j;
 
-	i = keys.length;
+  i = keys.length;
   // 从后往前遍历key
-	while (i--) {
-		key = keys[i];
-		value = node[key];
+  while (i--) {
+    key = keys[i];
+    value = node[key];
     // 如果该属性的value是数组，就从后往前遍历该数组
-		if (isArray(value)) {
-			j = value.length;
-			while (j--) {
-				visit(value[j], node, enter, leave, key, j);
-			}
-		} else if (value && value.type) {
-			visit(value, node, enter, leave, key, null);
-		}
-	}
+    if (isArray(value)) {
+      j = value.length;
+      while (j--) {
+        visit(value[j], node, enter, leave, key, j);
+      }
+    } else if (value && value.type) {
+      visit(value, node, enter, leave, key, null);
+    }
+  }
 
-	if (leave) {
-		leave(node, parent, prop, index);
-	}
+  if (leave) {
+    leave(node, parent, prop, index);
+  }
 }
-function walk (ast, ref) {
-	var enter = ref.enter;
-	var leave = ref.leave;
+function walk(ast, ref) {
+  var enter = ref.enter;
+  var leave = ref.leave;
 
-	visit(ast, null, enter, leave);
+  visit(ast, null, enter, leave);
 }
 ```
 
@@ -242,33 +255,36 @@ function walk (ast, ref) {
 
 ![遍历](./asstes//walk.png)
 
-## Tree Shaking原理
-1. ES6的模块引入是静态分析的，故而可以在编译时正确判断到底加载了什么代码
+## Tree Shaking 原理
+
+1. ES6 的模块引入是静态分析的，故而可以在编译时正确判断到底加载了什么代码
 2. 分析程序流，判断哪些变量未被使用、引用，进而删除此代码。
 
-> 为什么是静态分析？为什么是es6而不是commonjs（抛开import()），import为什么必须在顶部
+> 为什么是静态分析？为什么是 es6 而不是 commonjs（抛开 import()），import 为什么必须在顶部
 
 ```javascript
 if (isLoad) {
-  import a from 'b' // 报错
+  import a from "b"; // 报错
 }
 ```
 
-首先import不支持在条件语句里引入的（import(xxx)不算），因为esModule语法在经过`ast`编译的时候是静态的，也就是说在编译的时候没有办法知道`isLoad`是否为true，`commonjs`的`require`是可以在条件语句内加载的，故不支持`tree shaking`
+首先 import 不支持在条件语句里引入的（import(xxx)不算），因为 esModule 语法在经过`ast`编译的时候是静态的，也就是说在编译的时候没有办法知道`isLoad`是否为 true，`commonjs`的`require`是可以在条件语句内加载的，故不支持`tree shaking`
 
 ## 入口
 
 我们先找到`rollup`入口文件
+
 ```javascript
-export function rollup ( options ) {
-    // 创建bundle，每一个入口是一个bundle
-    const bundle = new Bundle( options );
-    // 执行build方法
-    return bundle.build()
+export function rollup(options) {
+  // 创建bundle，每一个入口是一个bundle
+  const bundle = new Bundle(options);
+  // 执行build方法
+  return bundle.build();
 }
 ```
 
 接下来我们逐步去分析`Bundle`这个类
+
 ## Bundle
 
 ```javascript
@@ -345,7 +361,9 @@ export default class Bundle {
 	sort () {...}
 }
 ```
+
 经过上面`Bundle`文件我们可以大概了解`bundle`做了哪些事情
+
 1. 创建`bundle并`调用 `build`方法，得到`entryModule`
 2. 根据入口文件名称调用`fetchModule`方法获取到文件的 `source code`
 3. 调用用户自定义传入的 `transfrom`方法转换`source code`,如果没传则不处理
@@ -355,6 +373,7 @@ export default class Bundle {
 还有其他的一些方法，由于现在还没有流转到，所以这里先不说。那我们接下来去看这个 `Module`类做了什么
 
 ## Module
+
 ```javascript
 export default class Module {
 	constructor ({ id, code, originalCode, ast, sourceMapChain, bundle }) {
@@ -615,72 +634,77 @@ export default class Module {
 上面是`Module`类的`build`流程中主要做的事情
 
 1. 创建类的同时保存一些必要属性`imports/exports/dependencies/bundle/statements`,创建`magicString`实例方便操作字符串等等
-2. 解析该`module`的`source code`为ast语法树，目的是为了处理里面的语句
-	- 空语句不用解析`EmptyStatement`
-	- `export var a1, a2, a3`这样的多声明的`exportNamedDeclaration`语句，就把它组合成正常带标识符的语句，
-	同时把当前正在解析的node改变为声明数组，也就是这一步`node = node.declaration;`，其目的是为了在下面的if执
-	行的时候把多变量声明拆分为单个单个的声明
-	- 如果是`VariableDeclaration`声明，并且是多变量声明（也就是有多个`declaration`）,给拆分为多个单声明语句。
-		- `export var a1, a3;`
-		- `var a1, a2, a3;`
-	- 正常的语句正常创建`statement`
+2. 解析该`module`的`source code`为 ast 语法树，目的是为了处理里面的语句
+   - 空语句不用解析`EmptyStatement`
+   - `export var a1, a2, a3`这样的多声明的`exportNamedDeclaration`语句，就把它组合成正常带标识符的语句，同时把当前正在解析的 node 改变为声明数组，也就是这一步`node = node.declaration`，其目的是为了在下面的 if 执行的时候把多变量声明拆分为单个单个的声明
+   - 如果是`VariableDeclaration`声明，并且是多变量声明（也就是有多个`declaration`）,给拆分为多个单声明语句。
+     - `export var a1, a3;`
+     - `var a1, a2, a3;`
+   - 正常的语句正常创建`statement`
 3. 执行模块的解析方法，给每个语句创建`scope`,并把其内部的`declaration`上绑定上父`statement`，方便操作
 
 接下来我们在看`statement`之前先了解一个类`Scope`
 
 ## Scope
+
 ```javascript
 export default class Scope {
-	constructor ( options ) {
-		options = options || {};
-		// 绑定父作用域
-		this.parent = options.parent;
-		// 是否是块作用域 const、let等等
-		this.isBlockScope = !!options.block;
-		// 当前作用域的声明
-		this.declarations = blank();
+  constructor(options) {
+    options = options || {};
+    // 绑定父作用域
+    this.parent = options.parent;
+    // 是否是块作用域 const、let等等
+    this.isBlockScope = !!options.block;
+    // 当前作用域的声明
+    this.declarations = blank();
 
-		if ( options.params ) {
-			options.params.forEach( param => {
-				extractNames( param ).forEach( name => {
-					this.declarations[ name ] = new Declaration( name );
-				});
-			});
-		}
-	}
-	// 给当前作用域添加一个声明
-	addDeclaration ( node, isBlockDeclaration, isVar ) {
-		if ( !isBlockDeclaration && this.isBlockScope ) {
-			// it's a `var` or function node, and this
-			// is a block scope, so we need to go up
-			this.parent.addDeclaration( node, isBlockDeclaration, isVar );
-		} else {
-			extractNames( node.id ).forEach( name => {
-				this.declarations[ name ] = new Declaration( name );
-			});
-		}
-	}
-	// 当前作用域是否存在该声明，符合作用域查找规律，优先查找自己的作用域，一层层往上找
-	contains ( name ) {
-		return this.declarations[ name ] ||
-		       ( this.parent ? this.parent.contains( name ) : false );
-	}
-	// 循环每一个声明，其主要作用就是语句分析的时候，给每个声明标记上当前的语句
-	eachDeclaration ( fn ) {
-		keys( this.declarations ).forEach( key => {
-			fn( key, this.declarations[ key ] );
-		});
-	}
-	// 找到该声明，符合作用域查找规律，优先查找自己的作用域，一层层往上找
-	findDeclaration ( name ) {
-		return this.declarations[ name ] ||
-		       ( this.parent && this.parent.findDeclaration( name ) );
-	}
+    if (options.params) {
+      options.params.forEach((param) => {
+        extractNames(param).forEach((name) => {
+          this.declarations[name] = new Declaration(name);
+        });
+      });
+    }
+  }
+  // 给当前作用域添加一个声明
+  addDeclaration(node, isBlockDeclaration, isVar) {
+    if (!isBlockDeclaration && this.isBlockScope) {
+      // it's a `var` or function node, and this
+      // is a block scope, so we need to go up
+      this.parent.addDeclaration(node, isBlockDeclaration, isVar);
+    } else {
+      extractNames(node.id).forEach((name) => {
+        this.declarations[name] = new Declaration(name);
+      });
+    }
+  }
+  // 当前作用域是否存在该声明，符合作用域查找规律，优先查找自己的作用域，一层层往上找
+  contains(name) {
+    return (
+      this.declarations[name] ||
+      (this.parent ? this.parent.contains(name) : false)
+    );
+  }
+  // 循环每一个声明，其主要作用就是语句分析的时候，给每个声明标记上当前的语句
+  eachDeclaration(fn) {
+    keys(this.declarations).forEach((key) => {
+      fn(key, this.declarations[key]);
+    });
+  }
+  // 找到该声明，符合作用域查找规律，优先查找自己的作用域，一层层往上找
+  findDeclaration(name) {
+    return (
+      this.declarations[name] ||
+      (this.parent && this.parent.findDeclaration(name))
+    );
+  }
 }
 ```
 
 在了解完`Scope`之后我们去看下`Statement`这个类的作用：
+
 ## Statement
+
 ```javascript
 export default class Statement {
 	constructor ( node, module, start, end ) {
@@ -900,20 +924,20 @@ export default function attachScopes ( statement ) {
 }
 ```
 
-以上代码中Statement所做的事情如下：
+以上代码中 Statement 所做的事情如下：
 
-1. 保存父module到自己身上方便操作，保存一些比较关键的信息(自己的scope、refrences、included等)
+1. 保存父 module 到自己身上方便操作，保存一些比较关键的信息(自己的 scope、refrences、included 等)
 2. 解析当前语句
-	- 如果该语句是import语句，则不需要解析（因为import语句是从其他模块引入引来的，在module层已经保留了imports，和关键词）
-	- 保存自己的作用域，目的是为了方便寻找自己内部的一些变量
-	- 给作用域里的每个声明增加当前语句的引用，目的是为了最终标记时，如果该作用域里的声明被使用，该语句一定是有副作用的，需要标记
-	- 保存当前语句的引用，放入`refrences`里
+   - 如果该语句是 import 语句，则不需要解析（因为 import 语句是从其他模块引入引来的，在 module 层已经保留了 imports，和关键词）
+   - 保存自己的作用域，目的是为了方便寻找自己内部的一些变量
+   - 给作用域里的每个声明增加当前语句的引用，目的是为了最终标记时，如果该作用域里的声明被使用，该语句一定是有副作用的，需要标记
+   - 保存当前语句的引用，放入`refrences`里
 
-直到这里，bundle的分析流程已经完结了，已经创建了一个依赖图，接下来我们看bundle在打包的时候是怎么只打包有被用到的代码
+直到这里，bundle 的分析流程已经完结了，已经创建了一个依赖图，接下来我们看 bundle 在打包的时候是怎么只打包有被用到的代码
 
 ## 绑定依赖
 
-``` javascript
+```javascript
 // Bundle
 export default class Bundle {
 	constructor(){...}
@@ -1027,17 +1051,19 @@ export default class Module {
 	}
 }
 ```
+
 上面主要内容是绑定依赖，也就是把模块之间的变量依赖所关联起来
 
 1. 按照前语句所有的引用查找依赖
-	- 如果能在作用域里查到，直接从作用域里拿
-	- 如果当前作用域查不到，就从其他模块里找
+   - 如果能在作用域里查到，直接从作用域里拿
+   - 如果当前作用域查不到，就从其他模块里找
 2. 根据变量名追踪该变量名对应的声明
 3. 绑定依赖
 
 上面的流程已经把所有变量之间的引用给关联起来了，接下来我们看下如何标记副作用
 
 ## 标记副作用
+
 ```javascript
 // bundle 的 build 方法里
 let settled = false;
@@ -1116,18 +1142,20 @@ markAllSideEffects () {
 		this.aliases.forEach( alias => alias.use() );
 	}
 ```
+
 以上是标记副作用的过程，它主要就是给语句、声明标记副作用
 
 1. 该语句是调用表达式`CallExpression`/`NewExpression`标记副作用
-2. 该语句是`AssignExpression`或者`UpdateExpression`，去找追踪node节点的声明
-	- 如果该声明不存在 标记有副作用
-	- 如果该声明是外部的，则标记副作用
-	- 如果该声明所依赖的语句被使用了，则标记副作用
+2. 该语句是`AssignExpression`或者`UpdateExpression`，去找追踪 node 节点的声明
+   - 如果该声明不存在 标记有副作用
+   - 如果该声明是外部的，则标记副作用
+   - 如果该声明所依赖的语句被使用了，则标记副作用
 3. 给当前语句打上`isIncluded`同时给该语句所引用的声明标记`isUsed`
 
-到这里完整的build流程基本就完事儿了，接下来就是输出source code
+到这里完整的 build 流程基本就完事儿了，接下来就是输出 source code
 
 ## render
+
 ```javascript
 export default class Module {
 	constructor(){...}
@@ -1274,32 +1302,35 @@ export default class Module {
 	}
 }
 ```
-上面是输出source code过程所做的一些事情
 
-1. 如果该语句没有被使用，就直接把该语句的source code删除（因为标记副作用的时候会把所有有用到的语句、声明打上标记）
+上面是输出 source code 过程所做的一些事情
+
+1. 如果该语句没有被使用，就直接把该语句的 source code 删除（因为标记副作用的时候会把所有有用到的语句、声明打上标记）
 2. 如果改语句是具名导出语句
-	- 该语句是合成语句，则不处理`var a1, a2, a3;`
-	- 该语句具有多个标识符 `export {a1, a2, a3}`，直接把该语句删除，不需要打包进去(因为上面创建的合成语句已经包括了这部分)
+   - 该语句是合成语句，则不处理`var a1, a2, a3;`
+   - 该语句具有多个标识符 `export {a1, a2, a3}`，直接把该语句删除，不需要打包进去(因为上面创建的合成语句已经包括了这部分)
 3. 如果该语句是合成语句 `var a1, a2, a3;`,则会处理成`var a1; var a2; var a3; `
 4. 处理各种导出与剧中的`export `关键词，进行删除
 5. 给默认导出的函数增加默认名
-6. 输出整个magicString的source code
+6. 输出整个 magicString 的 source code
 
 这样一整个完整的打包流程就到这里结束了。
 
 ## 总结
 
-1. `rollup`在build的时候会给当前应用创建一个`bundle`对象，上面包含了`entryModule`,以及该module所依赖的module，最终形成一个图
-2. 加载其对应的`module`,每一个文件是一个`module`，每一个module会把里面的`source code`创建一个`magicString`，方便操作
-3. 接待来module会进行ast转码，把body里的语法创建为`statement`的实例对象，然后只需要对每个语句进行分析就可以
-4. statement代码walk分析，目的主要是分析该语句所引用的声明，并打上标记（isImmediatelyUsed、isReassignment）是否立即使用、是否重新分配
-5. 标记模块副作用。`module.markAllSideEffect -> statement.markSideEffect -> state.refrences.declaration.use`，主要是`CallExpress | NewExpression`调用表达式和new表达式一定是存在副作用的，需要标记该语句，以及该语句所引用的声明
-6. 调用bundle.render->module.render，如果该语句不存在副作用，则直接根据语句的位置删除掉source code，最终输出source code
+1. `rollup`在 build 的时候会给当前应用创建一个`bundle`对象，上面包含了`entryModule`,以及该 module 所依赖的 module，最终形成一个图
+2. 加载其对应的`module`,每一个文件是一个`module`，每一个 module 会把里面的`source code`创建一个`magicString`，方便操作
+3. 接待来 module 会进行 ast 转码，把 body 里的语法创建为`statement`的实例对象，然后只需要对每个语句进行分析就可以
+4. statement 代码 walk 分析，目的主要是分析该语句所引用的声明，并打上标记（isImmediatelyUsed、isReassignment）是否立即使用、是否重新分配
+5. 标记模块副作用。`module.markAllSideEffect -> statement.markSideEffect -> state.refrences.declaration.use`，主要是`CallExpress | NewExpression`调用表达式和 new 表达式一定是存在副作用的，需要标记该语句，以及该语句所引用的声明
+6. 调用 bundle.render->module.render，如果该语句不存在副作用，则直接根据语句的位置删除掉 source code，最终输出 source code
 
-简单来说就是[Tree Shaking原理](#Tree-Shaking原理)
+简单来说就是[Tree Shaking 原理](#Tree-Shaking原理)
 
 参考文档
 
 [https://zhuanlan.zhihu.com/p/32831172](https://zhuanlan.zhihu.com/p/32831172)
+
 [https://segmentfault.com/a/1190000040009496](https://segmentfault.com/a/1190000040009496)
+
 [https://segmentfault.com/a/1190000040476979](https://segmentfault.com/a/1190000040476979)
