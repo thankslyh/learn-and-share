@@ -416,78 +416,13 @@ export default class Module {
 	basename () {}
 	// 绑定别名
 	bindAliases () {...}
-
-	bindImportSpecifiers () {
-		[ this.imports, this.reexports ].forEach( specifiers => {
-			keys( specifiers ).forEach( name => {
-				const specifier = specifiers[ name ];
-
-				const id = this.resolvedIds[ specifier.source ];
-				specifier.module = this.bundle.moduleById[ id ];
-			});
-		});
-
-		this.exportAllModules = this.exportAllSources.map( source => {
-			const id = this.resolvedIds[ source ];
-			return this.bundle.moduleById[ id ];
-		});
-	}
 	// 绑定引用，也就是该模块依赖于其他模块的变量/方法
 	bindReferences () {...}
 
-	consolidateDependencies () {
-		let strongDependencies = blank();
-		let weakDependencies = blank();
-
-		// treat all imports as weak dependencies
-		this.dependencies.forEach( source => {
-			const id = this.resolvedIds[ source ];
-			const dependency = this.bundle.moduleById[ id ];
-
-			if ( !dependency.isExternal ) {
-				weakDependencies[ dependency.id ] = dependency;
-			}
-		});
-
-		// identify strong dependencies to break ties in case of cycles
-		this.statements.forEach( statement => {
-			statement.references.forEach( reference => {
-				const declaration = reference.declaration;
-
-				if ( declaration && declaration.statement ) {
-					const module = declaration.statement.module;
-					if ( module === this ) return;
-
-					// TODO disregard function declarations
-					if ( reference.isImmediatelyUsed ) {
-						strongDependencies[ module.id ] = module;
-					}
-				}
-			});
-		});
-
-		return { strongDependencies, weakDependencies };
-	}
-
-	getExports () {
-		let exports = blank();
-
-		keys( this.exports ).forEach( name => {
-			exports[ name ] = true;
-		});
-
-		keys( this.reexports ).forEach( name => {
-			exports[ name ] = true;
-		});
-
-		this.exportAllModules.forEach( module => {
-			module.getExports().forEach( name => {
-				if ( name !== 'default' ) exports[ name ] = true;
-			});
-		});
-
-		return keys( exports );
-	}
+	// 处理强弱依赖，如果该引用是被立即使用的就是强依赖
+	consolidateDependencies () {...}
+	// 获取该模块的导出的变量
+	getExports () {...}
 	// 标记副作用
 	markAllSideEffects () {
 		let hasSideEffect = false;
@@ -498,7 +433,7 @@ export default class Module {
 
 		return hasSideEffect;
 	}
-
+	// 命名空间
 	namespace () {...}
 
 	parse ( ast ) {
@@ -686,13 +621,65 @@ export default class Module {
 	同时把当前正在解析的node改变为声明数组，也就是这一步`node = node.declaration;`，其目的是为了在下面的if执
 	行的时候把多变量声明拆分为单个单个的声明
 	- 如果是`VariableDeclaration`声明，并且是多变量声明（也就是有多个`declaration`）,给拆分为多个单声明语句。
-		- export var a1, a3;
-		- 在模块顶部 var a1, a2, a3;
+		- `export var a1, a3;`
+		- `var a1, a2, a3;`
 	- 正常的语句正常创建`statement`
-3. 执行模块的解析方法，给每个语句创建scope,并把其内部的declaration上绑定上父statement，方便操作
+3. 执行模块的解析方法，给每个语句创建`scope`,并把其内部的`declaration`上绑定上父`statement`，方便操作
 
-接下来我们去看`statement`在build过程中的一些操作
+接下来我们在看`statement`之前先了解一个类`Scope`
 
+## Scope
+```javascript
+export default class Scope {
+	constructor ( options ) {
+		options = options || {};
+		// 绑定父作用域
+		this.parent = options.parent;
+		// 是否是块作用域 const、let等等
+		this.isBlockScope = !!options.block;
+		// 当前作用域的声明
+		this.declarations = blank();
+
+		if ( options.params ) {
+			options.params.forEach( param => {
+				extractNames( param ).forEach( name => {
+					this.declarations[ name ] = new Declaration( name );
+				});
+			});
+		}
+	}
+	// 给当前作用域添加一个声明
+	addDeclaration ( node, isBlockDeclaration, isVar ) {
+		if ( !isBlockDeclaration && this.isBlockScope ) {
+			// it's a `var` or function node, and this
+			// is a block scope, so we need to go up
+			this.parent.addDeclaration( node, isBlockDeclaration, isVar );
+		} else {
+			extractNames( node.id ).forEach( name => {
+				this.declarations[ name ] = new Declaration( name );
+			});
+		}
+	}
+	// 当前作用域是否存在该声明，符合作用域查找规律，优先查找自己的作用域，一层层往上找
+	contains ( name ) {
+		return this.declarations[ name ] ||
+		       ( this.parent ? this.parent.contains( name ) : false );
+	}
+	// 循环每一个声明，其主要作用就是语句分析的时候，给每个声明标记上当前的语句
+	eachDeclaration ( fn ) {
+		keys( this.declarations ).forEach( key => {
+			fn( key, this.declarations[ key ] );
+		});
+	}
+	// 找到该声明，符合作用域查找规律，优先查找自己的作用域，一层层往上找
+	findDeclaration ( name ) {
+		return this.declarations[ name ] ||
+		       ( this.parent && this.parent.findDeclaration( name ) );
+	}
+}
+```
+
+在了解完`Scope`之后我们去看下`Statement`这个类的作用：
 ## Statement
 ```javascript
 export default class Statement {
@@ -713,7 +700,9 @@ export default class Statement {
 		// 当前语句是否被使用
 		this.isIncluded = false;
 
+		// 是否是import声明
 		this.isImportDeclaration = node.type === 'ImportDeclaration';
+		// 是否是export声明
 		this.isExportDeclaration = /^Export/.test( node.type );
 		// export { xxx } from './xxx'
 		this.isReexportDeclaration = this.isExportDeclaration && !!node.source;
@@ -723,12 +712,9 @@ export default class Statement {
 		// import语句不需要分析，因为在module中已经存在imports
 		if ( this.isImportDeclaration ) return; // nothing to analyse
 
-		// attach scopes
 		// 保存当前的作用域链到当前语句的`scope`上，其目的是为了方便找到该语句上使用的声明
 		attachScopes( this );
 
-		// attach statement to each top-level declaration,
-		// so we can mark statements easily
 		this.scope.eachDeclaration( ( name, declaration ) => {
 			// 保存给每个声明挂上当前语句的引用，方便操作
 			declaration.statement = this;
@@ -744,15 +730,15 @@ export default class Statement {
 				if ( node.type === 'Literal' && typeof node.value === 'string' && /\n/.test( node.raw ) ) {
 					stringLiteralRanges.push([ node.start + 1, node.end - 1 ]);
 				}
-
+				// 如果该node存在自己的scope，按照walk的的遍历规则，接下来遍历的就是该node内部的ast
+				// 所以需要改变当前的scope为该node的私有scope
 				if ( node._scope ) scope = node._scope;
 				if ( /Function/.test( node.type ) && !isIife( node, parent ) ) readDepth += 1;
 
-				// special case – shorthand properties. because node.key === node.value,
-				// we can't differentiate once we've descended into the node
 				// const a = 1; obj = { a } 这种的a属性叫做shorthand
 				if ( node.type === 'Property' && node.shorthand ) {
 					const reference = new Reference( node.key, scope );
+					// 标记为shorthandProperty, 目的是为了在render的时候通过这个生成 { a: 'a' }这种source code
 					reference.isShorthandProperty = true; // TODO feels a bit kludgy
 					references.push( reference );
 					return this.skip();
@@ -804,7 +790,7 @@ export default class Statement {
 
 					const reference = new Reference( node, referenceScope );
 					references.push( reference );
-
+					// 是否立即使用，如果walk到了一个函数，readDepth会+1，这里判断如果没有进入其他的作用域，该引用就是立即使用的
 					reference.isImmediatelyUsed = !readDepth;
 					reference.isReassignment = isReassignment;
 
@@ -817,7 +803,7 @@ export default class Statement {
 			}
 		});
 	}
-	// 给当前语句打标记，目的是为了有标记的才输出source code
+	// 给当前语句打标记，目的是为了有标记的声明不是DCE
 	mark () {...}
 	// 标记副作用
 	markSideEffect () {}
@@ -837,7 +823,6 @@ export default function attachScopes ( statement ) {
 		enter ( node, parent ) {
 			// function foo () {...}
 			// class Foo {...}
-			// 创建一个新的作用域
 			if ( /(Function|Class)Declaration/.test( node.type ) ) {
 				scope.addDeclaration( node, false, false );
 			}
@@ -845,6 +830,10 @@ export default function attachScopes ( statement ) {
 			// var foo = 1
 			// var foo = function(){}
 			if ( node.type === 'VariableDeclaration' ) {
+				// const blockDeclarations = {
+				// 	'const': true,
+				// 	'let': true
+				// };
 				const isBlockDeclaration = blockDeclarations[ node.kind ];
 				// only one declarator per block, because we split them up already
 				scope.addDeclaration( node.declarations[0], isBlockDeclaration, true );
