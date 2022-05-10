@@ -4,7 +4,7 @@
     
   {
     "name": "Launch Program",
-    "program": "${workspaceFolder}/week16/rollup/build.js",
+    "program": "${workspaceFolder}/rollup/rollup/build.js",
     "request": "launch",
     "skipFiles": [
       "<node_internals>/**"

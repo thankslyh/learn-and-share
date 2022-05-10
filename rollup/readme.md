@@ -376,7 +376,7 @@ export default class Bundle {
 
 ```javascript
 export default class Module {
-	constructor ({ id, code, originalCode, ast, sourceMapChain, bundle }) {
+	constructor ({ id, code, originalCode, ast = null, sourceMapChain, bundle }) {
 		// 当前被用户转换后的代码
 		this.code = code;
 		// 源码，也就是直接被读取到的字符串
@@ -651,6 +651,7 @@ export default class Module {
 export default class Scope {
   constructor(options) {
     options = options || {};
+		
     // 绑定父作用域
     this.parent = options.parent;
     // 是否是块作用域 const、let等等
@@ -1147,7 +1148,7 @@ markAllSideEffects () {
 
 1. 该语句是调用表达式`CallExpression`/`NewExpression`标记副作用
 2. 该语句是`AssignExpression`或者`UpdateExpression`，去找追踪 node 节点的声明
-   - 如果该声明不存在 标记有副作用
+   - 如果该声明不存在 标记有副作用 ?
    - 如果该声明是外部的，则标记副作用
    - 如果该声明所依赖的语句被使用了，则标记副作用
 3. 给当前语句打上`isIncluded`同时给该语句所引用的声明标记`isUsed`
