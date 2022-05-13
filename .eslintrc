@@ -1,8 +1,8 @@
 {
   "parserOptions": {
     "ecmaVersion": 6
+  },
+  "rules": {
+    "eslint/end-semicolon": "error"
   }
-//  "rules": {
-//    "eslint/end-semicolon": "error"
-//  }
 }
