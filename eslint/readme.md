@@ -145,4 +145,47 @@ run()
 husky可以约束你的提交message、约束code等等，可以使我们代码提交前检查代码、检查我们的
 commit message
 
+首先我们先安装 husky
+> npm install husky --save-dev/yarn add husky --save-dev
 
+启用git hooks
+> npx husky install
+
+创建一个hook
+> npx husky add .husky/pre-commit "npm test"
+
+这个时候在你的.husky目录下应该就会多出来一个pre-commit的文件，这个是在你提交前去做一些事情，
+接下来我们把新增加的文件提交git看会发生什么
+> git add .
+
+> git commit -m"测试husky"
+
+不出意外的话应该会出现以下报错
+
+![](./assets/npm-test.png)
+
+这是因为我们package.json中没有test这个脚本。接下来我们在package.json中增加test这个脚本
+
+```json
+{
+  "scripts": {
+    "test": "echo 'hello world'"
+  }
+}
+```
+
+![](./assets/add-npm-test.png)
+
+这样一个git hook就配置好了，那么怎么实际应用到我们项目中呢，又怎么跟eslint结合起来
+
+#### lint-staged
+
+我们需要用到lint-staged这个包
+
+> npm i lint-staged
+
+我们改写下package.json
+
+```json
+
+```
