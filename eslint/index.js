@@ -2,7 +2,7 @@ const eslint = require('eslint')
 
 const lint = new eslint.ESLint({
     // 是否自动修复
-    fix: false,
+    fix: true,
     overrideConfig: {
         parserOptions: {
             ecmaVersion: 6,
@@ -14,7 +14,7 @@ const lint = new eslint.ESLint({
     },
     // lint的目录
     rulePaths: [__dirname],
-    // 不适用eslintrc
+    // 不使用eslintrc
     useEslintrc: false
 })
 
@@ -27,7 +27,7 @@ async function run() {
     const formatter = lint.loadFormatter('stylish')
     const resultText = (await formatter).format(result)
     console.log(resultText)
-    // console.log(result)clea
+    console.log(result[0].output)
 }
 
 run()
