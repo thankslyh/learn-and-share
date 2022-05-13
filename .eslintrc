@@ -2,10 +2,7 @@
   "parserOptions": {
     "ecmaVersion": 6
   },
-  "extends": [
-    "./eslint/end-semicolon.js"
-  ],
   "rules": {
-    "end-semicolon": "error"
+    "./eslint/end-semicolon.js": "error"
   }
 }
