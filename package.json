@@ -1,15 +1,11 @@
 {
   "scripts": {
-    "test": "echo 'hello world'"
+    "test": "echo 'hello world'",
+    "lint": "lint-staged"
   },
   "devDependencies": {
     "husky": "^8.0.1",
     "lint-staged": "^12.4.1"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
   },
   "lint-staged": {
     "test-lint-staged.js": "eslint"
