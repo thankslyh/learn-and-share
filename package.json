@@ -8,6 +8,6 @@
     "lint-staged": "^12.4.1"
   },
   "lint-staged": {
-    "eslint/test-lint-staged.js": "eslint"
+    "./eslint/example/*.js": "eslint"
   }
 }
