@@ -3,6 +3,6 @@
     "ecmaVersion": 6
   },
   "rules": {
-    "./eslint/end-semicolon.js": "error"
+    "semi": ["error"]
   }
 }
