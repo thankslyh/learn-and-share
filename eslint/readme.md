@@ -184,8 +184,67 @@ commit message
 
 > npm i lint-staged
 
-我们改写下package.json
+我们改写下package.json、创建eslintrc、修改.husky文件下的hook
 
 ```json
+{
+  "scripts": {
+    "test": "echo 'hello world'",
+    "lint": "lint-staged"
+  },
+  "devDependencies": {
+    "husky": "^8.0.1",
+    "lint-staged": "^12.4.1"
+  },
+  "lint-staged": {
+    "./eslint/example/*.js": "eslint" // 指定进行lint的文件
+  }
+}
+```
+
+```json
+{
+  "parserOptions": {
+    "ecmaVersion": 6
+  },
+  "rules": {
+    "semi": ["error"] // 检测末尾分号
+  }
+}
 
 ```
+
+```bash
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+npm run lint
+
+```
+
+这里的流程是当我们触发git commit时，紧接着会触发git内置的pre-commit的钩子，
+根据配置找到husky的配置文件（可能是husky文件下的bash、package.json里的配置）,
+根据配置的命令执行lint-staged，针对于对应的文件作出eslint
+
+这个时候我们创建一个符合校验规则的js文件，然后进行提交
+
+```javascript
+// example/test-lint-stage.js
+const a = 1
+const b = 1
+console.log('hello world')
+const c = 1
+
+```
+
+> git add .
+
+> git commit -m"测试"
+
+这个时候该文件应该就会被拦截无法提交
+
+## 结语
+
+到这里我们了解到了为什么要使用eslint，它能给我们带来哪些好处。如何实现一个eslint规则，
+如何在项目中配置eslint和提交拦截，帮助我们项目更好的工程化
+

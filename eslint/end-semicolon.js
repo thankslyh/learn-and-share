@@ -3,7 +3,7 @@ const lookHasSemicolonAtEnd = (str) => str === ';'
 module.exports = {
     meta: {
         description: '这是一个检测语句结尾有没有分号的lint',
-        fixable: 'code', // 如果没有配置这个，即使实现了fixable，eslint也不会修正代码
+        fixable: false, // 如果没有配置这个，即使实现了fixable，eslint也不会修正代码
         messages: {
             'endNotSemicolon': '语句结尾缺少分号' // lint错误提示
         }
