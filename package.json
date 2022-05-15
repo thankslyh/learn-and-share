@@ -1,8 +1,13 @@
 {
   "scripts": {
-    "test": "echo 'hello world'"
+    "test": "echo 'hello world'",
+    "lint": "lint-staged"
   },
   "dependencies": {
-    "husky": "^8.0.1"
+    "husky": "^8.0.1",
+    "lint-staged": "^12.4.1"
+  },
+  "lint-staged": {
+    "./eslint/example/*.js": "eslint"
   }
 }
