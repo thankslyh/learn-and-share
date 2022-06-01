@@ -1807,7 +1807,7 @@ var requirejs, require, define;
 
     /**
      * Execute something after the current tick
-     * of the event loop. Override for other envs
+     * of the event-loop. Override for other envs
      * that have a better solution than setTimeout.
      * @param  {Function} fn function to execute later.
      */
@@ -1972,7 +1972,7 @@ var requirejs, require, define;
                 //that only one script needs to be loaded anyway. This may need
                 //to be reevaluated if other use cases become common.
 
-                // Post a task to the event loop to work around a bug in WebKit
+                // Post a task to the event-loop to work around a bug in WebKit
                 // where the worker gets garbage-collected after calling
                 // importScripts(): https://webkit.org/b/153317
                 setTimeout(function() {}, 0);
