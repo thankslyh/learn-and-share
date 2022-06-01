@@ -103,6 +103,8 @@ foo()
 ![](./assets/stack-boom.jpg)
 
 第二个例子因为setTimeout会创建事件到消息队列，所以能够解决一部分栈溢出的问题，但是由于setTimeout并不能精准的按时执行
+
+![](./assets/jiegou.jpg)
 ```javascript
 function foo(){
     const startTimeStamp = Date.now()
