@@ -3,20 +3,22 @@
 // }
 // foo()
 
+let count = 2000000000
 // 异步任务会被主线程任务阻塞的例子
-// function foo(){
-//     const startTimeStamp = Date.now()
-//     setTimeout(function () {
-//         console.log('foo 执行', Date.now() - startTimeStamp)
-//         foo()
-//     }, 0)
-//     let i = 0
-//     while (i < 100000000) {
-//         i++
-//     }
-// }
-//
-// foo()
+function foo(){
+    count += 1
+    const startTimeStamp = Date.now()
+    setTimeout(function () {
+        console.log('foo 执行', Date.now() - startTimeStamp)
+        foo()
+    }, 0)
+    let i = 0
+    while (i < count) {
+        i++
+    }
+}
+
+foo()
 
 // 有return，正常
 // async function testAsync() {
@@ -46,19 +48,19 @@
 // run()
 
 // 代码阻塞
-async function run() {
-    const data = await test()
-    console.log(data)
-    const test2 = '测试'
-    console.log(test2)
-}
-
-function test() {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve('test')
-        }, 3000)
-    })
-}
-
-run()
+// async function run() {
+//     const data = await test()
+//     console.log(data)
+//     const test2 = '测试'
+//     console.log(test2)
+// }
+//
+// function test() {
+//     return new Promise((resolve) => {
+//         setTimeout(() => {
+//             resolve('test')
+//         }, 3000)
+//     })
+// }
+//
+// run()

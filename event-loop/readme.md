@@ -3,6 +3,12 @@
 
 我们在使用`javascript`写代码的难免会使用到回调函数。同步回调函数`Array.map`、`Array.filter`对数组进行一些操作；异步回调函数比如我们用到的网络请求 `XMLHttpRequest`请求后端接口、请求静态资源等，`NodeJs`中的`fs`系统对文件进行一些异步操作
 
+> 目标
+
+1. 了解event loop帮助我们解决面试中的一些笔试题
+2. 帮助我们解决工作中的一些难题
+3. ...
+   
 ### 回调函数
 > 什么是回调函数？
 
@@ -237,9 +243,15 @@ run()
 
 [https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Statements/async_function](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Statements/async_function)
 
-### 总结
-
+> 区别
 1. `callback`回调函数形式异步编程模型需要我们写大量的回调函数，大量的回调函数其实会打乱代码的原有顺序，让代码读起来不够线性
 2. `promise`链式调用能很好解决回调地狱的问题但是充满的.then的链式调用，代码不能准确表示执行流程
 3. `async/await`同步的形式实现异步调用，让我们的代码更加的线性，但是需要注意的是由于每个await后的代码都要等之前的代码执行完才会执行，会使代码进行阻塞，所以要合理使用
+
+### 总结
+
+1. 浏览器有一个UI主线程，不断从消息队列取出任务执行（消息事件队列、timer消息队列等）
+2. 取出该任务之后会会创建一个空的js调用栈（js call stack）
+3. 由V8虚拟机编译代码（JIT）执行，创建一些必要的环境入栈（全局上下文、宿主环境）
+4. 执行代码入栈先进后出，遇到宏任务时会创建事件放入消息队列，遇到微任务时会放到该宏任务的微任务队列
 
