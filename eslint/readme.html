@@ -1,0 +1,260 @@
+<h2>自定义一个eslint</h2>
+
+<blockquote>
+<p>背景</p>
+</blockquote>
+
+<p>本次分享的一个背景就是之前一直只是大致了解eslint的原理，但是没有去真正实现过一个自定义的eslint。</p>
+
+<blockquote>
+<p>目标</p>
+</blockquote>
+
+<ol>
+<li>了解为什么要用eslint和为什么要学习如何实现一个eslint</li>
+<li>实现一个eslint以及学习eslint的部分api</li>
+<li>学会在项目中对配置eslint拦截提交，在提交时统一eslint规范</li>
+</ol>
+
+<p>思考几个个问题？</p>
+
+<ol>
+<li>多人负责开发的项目，每个人写代码的风格都不一样（是否加分号、括号内是否有空格等等），有的人写的代码整洁而有的人写的代码是一坨代码没有格式</li>
+<li>在项目中因为某些小问题导致出过很多次线上问题，如何避免（a.b.c/解构赋值null）</li>
+<li>如何统一规范，每个人的习惯难以修改</li>
+</ol>
+
+<p>应该每个人都多多少少遇到过上面的几个问题，使用eslint就可以轻松解决上面的几个问题
+增加格式校验、提交时自动格式化、容易犯错的写法增加自定义eslint拦截</p>
+
+<h3>简单实现一个eslint插件</h3>
+
+<p>下面我们看一个检查语句结尾是否有分号的lint</p>
+
+<h4>安装</h4>
+
+<p>首先我们先安装eslint</p>
+
+<blockquote>
+<p>npm i eslint / yarn add eslint</p>
+</blockquote>
+
+<p>安装完成之后我们创建一个end-semicolon.js的文件(名字随意)，用来实现检查结尾是否有分号的eslint
+注意文件名就是我们要配置的rule</p>
+
+<pre><code>// end-semicolon.js
+const lookHasSemicolonAtEnd = (str) =&gt; str === &#39;;&#39;
+
+module.exports = {
+    meta: {
+        description: &#39;这是一个检测语句结尾有没有分号的lint&#39;, // 描述
+        fixable: &#39;code&#39;, // 如果没有配置这个，即使实现了fixable，eslint也不会修正代码
+        messages: {
+            &#39;endNotSemicolon&#39;: &#39;语句结尾缺少分号&#39; // lint错误提示
+        }
+    },
+    create(context) {
+        // 获取ast语法树
+        const sourceCode = context.getSourceCode()
+        return {
+            VariableDeclaration(node) { // 声明语句处理
+                // 获取该node的最后一个token
+                const lastToken = sourceCode.getLastToken(node)
+                if (!lookHasSemicolonAtEnd(lastToken.value)) {
+                    // 报告错误
+                    context.report({
+                        node: node,
+                        loc: lastToken.loc,
+                        messageId: &#39;endNotSemicolon&#39;, // meta里配置的元信息
+                        fix: function (fixer) {
+                            // 循序修复的话，会调用修复方法
+                            return fixer.insertTextAfter(node, &#39;;&#39;)
+                        }
+                    })
+                }
+            },
+            ExpressionStatement(node) { // 表达式语句处理
+                const lastToken = sourceCode.getLastToken(node)
+                if (!lookHasSemicolonAtEnd(lastToken.value)) {
+                    context.report({
+                        node: node,
+                        loc: lastToken.loc,
+                        messageId: &#39;endNotSemicolon&#39;,
+                        fix: function (fixer) {
+                            return fixer.insertTextAfter(node, &#39;;&#39;)
+                        }
+                    })
+                }
+            }
+        }
+    }
+}
+</code></pre>
+
+<p>具体的配置可以参考官方文档：</p>
+
+<p><a href="https://eslint.bootcss.com/docs/developer-guide/working-with-rules" rel="nofollow">参考文档 eslint</a></p>
+
+<p>经过上面的步骤，我们的eslint已经写好了，那接下来我们看下如何使用</p>
+
+<h4>使用eslint api</h4>
+
+<p>我们在同级的目录下新建一个index.js，代码如下：</p>
+
+<pre><code>const eslint = require(&#39;eslint&#39;)
+
+const lint = new eslint.ESLint({
+    // 是否自动修复
+    fix: false,
+    overrideConfig: {
+        parserOptions: { // 解析配置
+            ecmaVersion: 6, // 使用es6
+        },
+        rules: {
+            // 自定义的lint，名字根文件名一致，等级是error
+            &#39;end-semicolon&#39;: [&#39;error&#39;]
+        }
+    },
+    // lint的目录
+    rulePaths: [__dirname],
+    // 不使用eslintrc
+    useEslintrc: false
+})
+
+// 测试函数
+async function run() {
+    const result = await lint.lintText(`
+        const a = 1 + 1
+        const b = a + 1
+        console.log(a + b)
+    `)
+    const formatter = lint.loadFormatter(&#39;stylish&#39;)
+    const resultText = (await formatter).format(result)
+    console.log(resultText)
+    console.log(result[0].output)
+}
+
+run()
+
+</code></pre>
+
+<p>我们执行 <code>node index</code>应该能看到下面的报错截图</p>
+
+<p><img src="./assets/error-msg.png" alt="报错截图"/></p>
+
+<p>我们看下把fix参数改为true之后的效果</p>
+
+<p><img src="./assets/format-end.png" alt="格式化成功"/></p>
+
+<p>可以看到没有分号结尾的语句自动给加上分号了。</p>
+
+<p>这样我们就实现了一个简单地eslint规则</p>
+
+<h4>husky</h4>
+
+<p>husky可以约束你的提交message、约束code等等，可以使我们代码提交前检查代码、检查我们的
+commit message</p>
+
+<p>首先我们先安装 husky
+&gt; npm install husky –save-dev/yarn add husky –save-dev</p>
+
+<p>启用git hooks
+&gt; npx husky install</p>
+
+<p>创建一个hook
+&gt; npx husky add .husky/pre-commit “npm test”</p>
+
+<p>这个时候在你的.husky目录下应该就会多出来一个pre-commit的文件，这个是在你提交前去做一些事情，
+接下来我们把新增加的文件提交git看会发生什么
+&gt; git add .</p>
+
+<blockquote>
+<p>git commit -m”测试husky”</p>
+</blockquote>
+
+<p>不出意外的话应该会出现以下报错</p>
+
+<p><img src="./assets/npm-test.png" alt=""/></p>
+
+<p>这是因为我们package.json中没有test这个脚本。接下来我们在package.json中增加test这个脚本</p>
+
+<pre><code>{
+  &#34;scripts&#34;: {
+    &#34;test&#34;: &#34;echo &#39;hello world&#39;&#34;
+  }
+}
+</code></pre>
+
+<p><img src="./assets/add-npm-test.png" alt=""/></p>
+
+<p>这样一个git hook就配置好了，那么怎么实际应用到我们项目中呢，又怎么跟eslint结合起来</p>
+
+<h4>lint-staged</h4>
+
+<p>我们需要用到lint-staged这个包</p>
+
+<blockquote>
+<p>npm i lint-staged</p>
+</blockquote>
+
+<p>我们改写下package.json、创建eslintrc、修改.husky文件下的hook</p>
+
+<pre><code>{
+  &#34;scripts&#34;: {
+    &#34;test&#34;: &#34;echo &#39;hello world&#39;&#34;,
+    &#34;lint&#34;: &#34;lint-staged&#34;
+  },
+  &#34;devDependencies&#34;: {
+    &#34;husky&#34;: &#34;^8.0.1&#34;,
+    &#34;lint-staged&#34;: &#34;^12.4.1&#34;
+  },
+  &#34;lint-staged&#34;: {
+    &#34;./eslint/example/*.js&#34;: &#34;eslint&#34; // 指定进行lint的文件
+  }
+}
+</code></pre>
+
+<pre><code>{
+  &#34;parserOptions&#34;: {
+    &#34;ecmaVersion&#34;: 6
+  },
+  &#34;rules&#34;: {
+    &#34;semi&#34;: [&#34;error&#34;] // 检测末尾分号
+  }
+}
+
+</code></pre>
+
+<pre><code>#!/usr/bin/env sh
+. &#34;$(dirname -- &#34;$0&#34;)/_/husky.sh&#34;
+
+npm run lint
+
+</code></pre>
+
+<p>这里的流程是当我们触发git commit时，紧接着会触发git内置的pre-commit的钩子，
+根据配置找到husky的配置文件（可能是husky文件下的bash、package.json里的配置）,
+根据配置的命令执行lint-staged，针对于对应的文件作出eslint</p>
+
+<p>这个时候我们创建一个符合校验规则的js文件，然后进行提交</p>
+
+<pre><code>// example/test-lint-stage.js
+const a = 1
+const b = 1
+console.log(&#39;hello world&#39;)
+const c = 1
+
+</code></pre>
+
+<blockquote>
+<p>git add .</p>
+
+<p>git commit -m”测试”</p>
+</blockquote>
+
+<p>这个时候该文件应该就会被拦截无法提交</p>
+
+<h2>结语</h2>
+
+<p>到这里我们了解到了为什么要使用eslint，它能给我们带来哪些好处。如何实现一个eslint规则，
+如何在项目中配置eslint和提交拦截，帮助我们项目更好的工程化</p>
