@@ -1,24 +1,27 @@
-// function foo(){
-//     foo()
-// }
-// foo()
-
-let count = 2000000000
-// 异步任务会被主线程任务阻塞的例子
+let i = 0
 function foo(){
-    count += 1
-    const startTimeStamp = Date.now()
-    setTimeout(function () {
-        console.log('foo 执行', Date.now() - startTimeStamp)
-        foo()
-    }, 0)
-    let i = 0
-    while (i < count) {
-        i++
-    }
+    // i++
+    // if (i >= 13939) return
+    return foo()
 }
-
 foo()
+
+// let count = 2000000000
+// // 异步任务会被主线程任务阻塞的例子
+// function foo(){
+//     count += 1
+//     const startTimeStamp = Date.now()
+//     setTimeout(function () {
+//         console.log('foo 执行', Date.now() - startTimeStamp)
+//         foo()
+//     })
+//     let i = 0
+//     while (i < count) {
+//         i++
+//     }
+// }
+//
+// foo()
 
 // 有return，正常
 // async function testAsync() {

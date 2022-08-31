@@ -1,4 +1,3 @@
-
 function bar(){
     console.log('bar')
     Promise.resolve().then(
@@ -7,14 +6,12 @@ function bar(){
     setTimeout((str) =>console.log('macro-bar'),0)
 }
 
-
 function foo() {
     console.log('foo')
     Promise.resolve().then(
         (str) =>console.log('micro-foo')
     )
     setTimeout((str) =>console.log('macro-foo'),0)
-
     bar()
 }
 foo()

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>array buffer</title>
+</head>
+<body>
+
+<script>
+  const buf = new ArrayBuffer(32)
+  console.log(buf)
+  const dataView = new DataView(buf, 0)
+  console.log(dataView.getInt8(31))
+</script>
+</body>
+</html>

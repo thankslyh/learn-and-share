@@ -1,0 +1,244 @@
+<html><head></head><body><h1>模块化发展史</h1>
+
+<blockquote>
+<p>我们为什么要学习这个？
+我可以列举出来几点，大家可以补充
+1. 面试会问到
+2. 由浅入深，学习模块化的进化史，有利于我们学习最新的技术
+3. 学到前端的其他知识，有利于自己工作</p>
+</blockquote>
+
+<p>主要分为IIFE(自执行函数)、AMD（requirejs）、CMD（seajs）、CommonJS（node 规范）、UMD（一种规范）、webpack（require.ensure）、ES Module（现在流行的mjs） <code>&lt;script type=&#34;module&#34;&gt;&lt;/script&gt;</code></p>
+
+<blockquote>
+<p>为什么要模块化？</p>
+</blockquote>
+
+<ol>
+<li>避免变量污染</li>
+<li>复用代码</li>
+<li>隔离作用域</li>
+<li>便于代码维护</li>
+<li>…</li>
+</ol>
+
+<h2>IIFE（闭包）</h2>
+
+<pre><code>// 自执行函数，变量只在函数体内生效，隔离了作用域;互不影响
+(function(win) {
+  var a = 1
+  win.test1A = a
+})(window)
+
+(function(win) {
+  var a = 2
+  win.test2A = a
+})(window)
+</code></pre>
+
+<p>比如两个module，是Amodule 和Bmodule，他俩都有getName方法我们要实现有 几种方法</p>
+
+<ol>
+<li>在每个module里声明getXmoduleName</li>
+<li>我们给每个module命名，Xmodule.getName</li>
+<li>使用闭包</li>
+</ol>
+
+<p>IIFE自执行函数产生了闭包虽然隔离了作用域，避免了变量污染，但是我们在使用的过程中很难知道某个方法来自哪个文件</p>
+
+<h2>requireJs AMD (Asynchronous Module Definition)</h2>
+
+<pre><code>// main.js 注册模块的方法
+requirejs.config({
+  baseUrl: &#39;&#39;,
+  paths: {
+    say: &#39;js/say&#39;,
+  }
+})
+// 引用say方法
+require([&#39;say&#39;], (say) =&gt; {
+  say(&#39;hello&#39;);
+});
+
+// say.js 定义方法
+define(function () {
+  return (word) =&gt; {
+    console.log(word)
+  }
+});
+</code></pre>
+
+<p>特点：</p>
+
+<ol>
+<li>依赖提前声明好</li>
+<li>比起IIFE更好维护，可寻踪方法是在哪个文件</li>
+</ol>
+
+<p>核心原理：根据定义的工具(config方法传递的)的js文件地址，动态生成<code>script</code>标签加载对应js，得到其方法(调用<code>define</code>定义的方法，的到返回值)缓存到一个对象里以paths的name为key，等到require的时候找到这个方法 {say: () =&gt; console.log()}</p>
+
+<pre><code>// 用上面的demo举例就是
+// 1. 动态生成script加载js/say
+const script = documnet.createElemment(&#39;script&#39;).src = &#39;js/say.js&#39;
+document.head.append(script)
+// 这个时候系统会去执行这个该js，也就是define(xxx)
+var modules = {}
+function define(deps, factory) {
+  // deps是这个工具所依赖的其他工具，暂不用管
+  modules.say = factory() // 这个factory就是定义的时候传入的function，调用之后的到返回的函数/变量
+}
+// require的时候
+function require(deps, callback) {
+  const id = deps.pop()
+  // 根据id找到模块方法，并当作参数传出去
+  callback(modules[id])
+}
+</code></pre>
+
+<p>seajs比起IIFE更加清晰的知道了我们所用的变量/方法来自哪个文件，便于我们维护，由于它的依赖前置声明机制导致我们即使用不到的依赖也会被加载到页面当中，消耗了内存和性能</p>
+
+<h2>seaJS CMD (Common Module Definition)</h2>
+
+<pre><code>// 定义配置文件但是不加载，只是把依赖通过闭包储存起来
+// seajs.data.debug = true;
+  seajs.use(&#39;./call.js&#39;)
+
+// 使用
+define(function(require, exports, module) {
+  var jquery = require(&#39;todo&#39;)
+  // doSomeThings
+});
+
+// todo.js声明
+define(function(require, exports, module) {
+  module.exports = (something) =&gt; {
+    console.log(`do ${something}`)
+  }
+});
+</code></pre>
+
+<p>了解<code>module.exports</code>之前我们先来看一个demo</p>
+
+<pre><code>// index.html 
+&lt;script src=&#34;./a.js&#34;&gt;&lt;/script&gt;
+&lt;script src=&#34;./b.js&#34;&gt;&lt;/script&gt;
+&lt;script&gt;
+  exportTest(myModule)
+  console.log(myModule) // 输出 导出了一个字符串
+&lt;/script&gt;
+
+// a.js
+var myModule = {
+  exports: {}
+}
+
+function define(factory) {
+  factory(myModule);
+}
+
+// b.js
+define((module) =&gt; {
+  module.exports = &#39;导出了一个字符串&#39;
+})
+</code></pre>
+
+<p>上面的例子是简易模仿<code>define</code>&amp;<code>module.exports</code>
+1. 调用函数传递参数，传递的是引用值(<code>reference value</code>)那么函数体内的到的就是引用的指针（内存地址），反之则是基本数据类型
+2. 在函数体内修改了对象的某个属性，因为是引用类型所以其他地方也会改变（修改的是同一个指针）
+3. 函数是可以当作参数传递的（高阶函数）</p>
+
+<p>正是通过上面的几个原理我们实现了一个最简易的<code>module.exports</code>&amp;<code>define</code>这对我们理解下面的很有帮助</p>
+
+<p>特点：</p>
+
+<ol>
+<li>使用时在进行创建script保存变量方法</li>
+<li>加载成功后从dom中删除该script，防止内存泄漏</li>
+</ol>
+
+<p>与requireJS不同点
+1. 初始化阶段不加载没用到的js，调用require的时候会先从缓存的变量里去拿，拿不到才会在加载js
+2. js加载成功后保存方法，然后删除js防止内存泄漏</p>
+
+<p>核心原理：use(xxx)的时候找到该文件，动态创建script插入head标签内部，然后删除该script（防止内存泄漏）；使用require的时候根据require(xxx)找到该文件，重复第二步，使函数方法保存在内存里；define的时候把定义的方法保存到module.exports里；</p>
+
+<p><img src="http://re6rc13q5.hb-bkt.clouddn.com/2022-06-29/01.jpeg" alt="avatar"/></p>
+
+<p><img src="http://re6rc13q5.hb-bkt.clouddn.com/2022-06-29/02.png" alt="avatar"/></p>
+
+<h2>node CommonJS</h2>
+
+<p>// 简单使用</p>
+
+<pre><code>// index.js
+const todo = require(&#39;./todo.js&#39;)
+const obj = require(&#39;./todo2.js&#39;)
+todo(&#39;eat&#39;) // eat
+console.log(obj) // { a: 2 }
+
+// todo.js
+module.exports = (somethings) =&gt; console.log(somethings)
+
+// todo2.js
+var obj = {a: 1}
+module.exports = obj
+obj.a = 2
+</code></pre>
+
+<p>这里先抛出三个问题
+1. require、module从哪来的？我们明明没有引用这个却能直接使用
+
+3. <code>nodejs</code>没有<code>script</code>怎么执行js脚本?</p>
+
+<p><code>nodejs</code>只有一个入口，首先从package.json中找到<code>main</code>使用fs模块读取该入口文件成字符串</p>
+
+<pre><code>// source 此时就是该文件的字符串源码
+const source = fs.readFileSync(&#39;./index.js&#39;)
+&#39;const todo = require(&#39;./todo.js&#39;)&#39;
+</code></pre>
+
+<p>然后nodejs会使用上下文把它给包裹起来</p>
+
+<pre><code>var wrapper = [
+  &#39;(function (exports, require, module, __filename, __dirname) { &#39;,
+  &#39;\n});&#39;
+]
+
+// 方便理解写成这样
+// var wrapper = [
+//   &#39;(function(){&#39;,
+//   // 这里放source
+//   &#39;})(global.exports, global.require, global.__filename, global.__dirname)&#39;
+// ]
+
+// 组合成带环境的最终代码 可能就是这样的字符串
+// (function(exports, require, module, __filename, __dirname) {
+//   module.exports = (somethings) =&gt; {
+//     console.log(somethings);
+// }
+// })(global.exports, global.require,global.module, global.__filename, global.__dirname);
+const endSrouce = wrapper[0] + source + wrapper[1]
+</code></pre>
+
+<p>用当前上下文去执行，这样我们就能在js环境中拿到<code>require、module...</code>方法或变量了。其中nodejs用C语言封装了一个<code>ContextifyScript</code>,然后使用这个方法new出来一个实例，去运行</p>
+
+<pre><code>// 5.x版本
+// 这个是C封装的，看球不懂，大概意思是使用C封装了个类似于浏览器的script，用以执行javasript
+var script = new ContextifyScript(source)
+script.runinThisContext()
+</code></pre>
+
+
+
+<p>总结
+1. AMD&amp;CMD核心原理是利用动态创建script，然后放入html中执行该脚本；使用闭包保存方法、变量
+2. nodejs的commonjs是使用C语言执行js代码，注入上下文执行js
+3. module.export 导出是利用函数的传参数的引用类型</p>
+
+<p>后续 UMD &amp; webpack.ensure &amp; esmodule <a href="../20220404-20220410/readme.md" rel="nofollow">后续补充</a></p>
+
+<p>TODO
++ [  ] UMD 补充 、esmodule
++ [  ] esmodule的加载的简单实现
++ [  ] tree sharking 原理剖析，实现一个简易的tree sharking</p>
+</body></html>
