@@ -5,12 +5,22 @@
     <title>array buffer</title>
 </head>
 <body>
-
+<input type="file" id="file">
 <script>
-  const buf = new ArrayBuffer(32)
-  console.log(buf)
-  const dataView = new DataView(buf, 0)
-  console.log(dataView.getInt8(31))
+  // const buf = new ArrayBuffer(32)
+  // console.log(buf)
+  // const dataView = new DataView(buf, 0)
+  // console.log(dataView.getInt8(31))
+  document.getElementById('file').addEventListener('change', ev => {
+      const files = ev.target.files
+      const reader = new FileReader()
+      reader.readAsArrayBuffer(files[0])
+      reader.onload = function () {
+          const datav = new DataView(this.result)
+          console.log(datav)
+          console.log(datav.getUint16(0, true), datav.getUint32(2, true))
+      }
+  })
 </script>
 </body>
 </html>
