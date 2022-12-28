@@ -42,4 +42,3 @@ type res6 = ReturnType1<(x: number) => string>
 type Parameter1<F> = F extends (...args: infer A) => any ? A : never
 
 type res7 = Parameter1<(x: number, y: string) => string>
-

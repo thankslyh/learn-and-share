@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.7.10/dist/vue.js"></script>
+  <script>
+    new Vue({
+      el: '#app',
+      data() {
+        return {
+          obj1: {
+            a: 1
+          },
+          obj2: {},
+          arr1: [],
+          arr2: [1, 2, 3],
+          arr3: [
+            {
+              a: 1
+            },
+            {
+              a: 2
+            }
+          ]
+        }
+      },
+      template: `
+        <div>
+          <div>obj1.a = {{ obj1.a }}</div>
+          <div>obj2.a = {{ obj2.a }}</div>
+          <div>arr1[0] = {{ arr1[0] }}</div>
+          <div>arr2[0] = {{ arr2[0] }}</div>
+          <div>arr3[0].a = {{arr3[0].a}}</div>
+          <button @click="change">change</button>
+        </div>
+      `,
+      mounted() {
+        console.log(this.obj2)
+      },
+      methods: {
+        change() {
+          // this.obj1.a++
+          // this.obj2.a = 10
+          // this.arr1[0] = 10
+          // this.arr2[0] = 10
+          // this.arr3[0].a = 10
+          this.arr3[0] = {a: 10}
+          console.log(this.obj2, this.arr1)
+        }
+      }
+    })
+  </script>
+</body>
+</html>
